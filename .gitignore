@@ -1,3 +1,4 @@
 .DS_store
 *.sh
 Additional_analysis
+.ipynb_checkpoints
