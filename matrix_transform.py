@@ -684,7 +684,6 @@ def transform_matrix_sigma(folder,
         wt_mean = np.mean(wt_vals)
         stop_mean = np.mean(fchange.loc['*'])
         scale_factor = mean_stop[set_redo]/(stop_mean-wt_mean)
-        print(scale_factor)
         fchange_norm = (fchange - wt_mean)*scale_factor
 
         set_list_res.append(fchange_norm)
