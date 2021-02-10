@@ -259,6 +259,118 @@ def transform_dist(
     if save == True:
         plotly.offline.plot(fig, filename = kwarg['name'])
 
+def transform_dist_sigma(
+        folder, suffix, subplot_titles, samples,
+            sets, res_redo, all_sets, save = False, **kwarg):
+    '''
+    Distribution shape of original scores from screen. WT from each set
+    is set to 0 and variance of each set is set to 1.
+    ___________________
+    Input:
+    folder: column name in sample spreadsheet that points to folder
+    suffix: suffix of the file name
+    subplot_titles: title of plots
+    samples: dataframe of sample_spreadsheet with data specs
+    sets: complete sets
+    res_redo: residues that were individually sequenced
+    all_sets: all sets including those that were individually resequenced
+    if save = True add kwarg name: file path for saving figure
+
+
+    '''
+    # average value of wt
+    # average value of stop codon
+    # number of residues in set
+    mean_stop = {}
+    len_set = {}
+
+    fig = make_subplots(
+    rows=5, cols=6,
+    subplot_titles=subplot_titles)
+    layout= itertools.product(range(1,6), range(1,7))
+    for x, pos in list(zip(sets + res_redo, layout)):
+        if x in sets:
+            fchange = pd.read_csv(list(samples[samples['Set']\
+                                ==str(x)][folder])[0]\
+                                + str(x) + suffix, index_col = [0])
+            start = list(samples[samples['Set'] == str(x)]['Start range'])[0]
+            end = list(samples[samples['Set'] == str(x)]['End range'])[0]
+            # name the columns
+            fchange.columns = ['Res '+str(x) for x in list(range(start, end))]
+            wt_subseq = wt_full[start:end] #find WT residues for the set
+
+            flat_list = np.array([item for sublist in
+                    fchange.values for item in sublist])
+            mean = flat_list[~np.isnan(flat_list)].mean() # mean of the set
+            var = flat_list[~np.isnan(flat_list)].var() # variance of the set
+
+            # set the variance of all sets to 1
+            fchange_norm = (fchange-mean)/np.sqrt(var) + mean
+            fchange_norm.columns = ['Res '+str(x) for x
+                    in list(range(start, end))] # name the columns
+
+            #set average wt to 0
+            cols = fchange_norm.columns
+            wt_vals = []
+            for row, col in zip(wt_subseq, cols):
+                wt_vals.append(fchange_norm.loc[row, col])
+            fchange_norm = fchange_norm - np.mean(wt_vals)
+            # add to dict for mean stop
+            mean_stop[str(x)] = np.mean(fchange_norm.loc['*'])
+            len_set[str(x)] = len(fchange_norm.columns)
+            flatten_fchange = fchange_norm.values
+            flat_list = np.array([item for sublist in
+                    flatten_fchange for item in sublist])
+
+            fig.add_trace(go.Histogram(x=flat_list,
+                                        xbins=dict( # bins used for histogram
+                    start=min(flat_list),
+                    end=max(flat_list),
+                    size=0.25
+                    ),), row=pos[0], col=pos[1])
+
+        else: # for all individually repeated residues
+            set_ind = x.find('R') #identify the R notation for the repeated set
+            set_redo = x[:set_ind]
+            start = list(samples[samples['Set'] == str(x)]['Start range'])[0]
+            end = list(samples[samples['Set'] == str(x)]['End range'])[0]
+            sites_ = list(samples[samples['Set'] == str(x)]['Sites'])[0]
+            sites = ['Res '+ str(x) for x in sites_.split(',')]
+            fchange = pd.read_csv(list(samples[samples['Set']\
+                                ==str(x)][folder])[0]\
+                                + str(x) + suffix, index_col = [0])
+            fchange.columns = ['Res '+str(x) for x in list(range(start, end))]
+            fchange = fchange[sites]
+            wt_subseq = [wt_full[int(ind)] for ind in sites_.split(',')]
+            cols = fchange.columns
+            wt_vals = []
+            for row, col in zip(wt_subseq, cols):
+                wt_vals.append(fchange.loc[row, col])
+
+            # Calculate scaling values for slotting in individual residues
+            wt_mean = np.mean(wt_vals)
+            stop_mean = np.mean(fchange.loc['*'])
+            scale_factor = mean_stop[set_redo]/stop_mean
+            fchange_norm = (fchange - wt_mean)*scale_factor
+
+    #         print(x, np.mean(wt_vals), np.var(wt_vals))
+            flatten_fchange = fchange_norm.values
+            flat_list = np.array([item for sublist in\
+                    flatten_fchange for item in sublist])
+
+            fig.add_trace(go.Histogram(x=flat_list,
+                    xbins=dict( # bins used for histogram
+                    start=min(flat_list),
+                    end=max(flat_list),
+                    size=0.25
+                ),), row=pos[0], col=pos[1])
+
+    fig.update_layout(height=700, width=900,
+                      title_text=kwarg['title'])
+    fig.show()
+    if save == True:
+        plotly.offline.plot(fig, filename = kwarg['name'])
+
 def transform_dist_mat(folder, suffix, samples, sets, res_redo, all_sets):
     '''
     Distribution shape of original scores from screen.
@@ -340,6 +452,19 @@ def transform_dist_mat(folder, suffix, samples, sets, res_redo, all_sets):
     return df_list
 
 def transform_matrix(folder, suffix, samples, sets, res_redo, all_sets, set21):
+    '''
+    Transform each set so that WT fixed at 0 and stop codon is normalized to
+    -1 in each set.
+    __________
+    Input:
+    folder: column name in sample spreadsheet that points to folder
+    suffix: suffix of the file name
+    samples: sample spreadsheet
+    sets: all complete sets
+    res_redo: all invividually resequenced sets
+    all_sets: all sets
+    set21: set21--treated separately because of the C terminus
+    '''
     mean_stop = {}
     len_set = {}
     set_list = []
@@ -486,3 +611,90 @@ def raw_dist(folder, samples, sets, res_redo, all_sets):
     mid = [x[1] for x in error['Translation']]
     error['middle'] = mid
     return(error)
+
+def transform_matrix_sigma(folder,
+        suffix, samples, sets, res_redo, all_sets):
+    '''
+    Transforms the data by set such that all the wildtypes are fixed at zero
+    and standard deviation of each set is set to 1.
+    __________
+    Input:
+    folder: column name in sample spreadsheet that points to folder
+    suffix: suffix of the file name
+    samples: sample spreadsheet
+    sets: all complete sets
+    res_redo: all invividually resequenced sets
+    all_sets: all sets
+    '''
+
+    mean_stop = {}
+    len_set = {}
+    set_list = []
+    for file in sets:
+        fchange = pd.read_csv(list(samples[samples['Set']
+                            ==str(file)][folder])[0]\
+                            +str(file) + suffix, index_col = [0])
+        start = list(samples[samples['Set'] == str(file)]['Start range'])[0]
+        end = list(samples[samples['Set'] == str(file)]['End range'])[0]
+        fchange.columns = ['Res '+str(x) for x in list(range(start, end))]
+        wt_subseq = wt_full[start:end] #find WT residues for the set
+
+        flat_list = np.array([item for sublist in fchange.values \
+                for item in sublist])
+        mean = flat_list[~np.isnan(flat_list)].mean() # mean of the set
+        var = flat_list[~np.isnan(flat_list)].var() # variance of the set
+        # set the variance of all set to 1
+        # normalize the set to unit variance
+        fchange_norm = (fchange-mean)/np.sqrt(var)+mean
+        #new label for columns
+        fchange_norm.columns = ['Res '+str(x) for x in list(range(start, end))] # name the columns
+        #figure out average wt values for set and linear transform
+        cols = fchange_norm.columns
+        wt_vals = []
+        for row, col in zip(wt_subseq, cols):
+            wt_vals.append(fchange_norm.loc[row, col])
+        fchange_norm = fchange_norm - np.mean(wt_vals)
+        # add to dict for mean stop
+        mean_stop[str(file)] = np.mean(fchange_norm.loc['*'])
+        len_set[str(file)] = len(fchange_norm.columns)
+
+        set_list.append(fchange_norm)
+
+    set_list_res = []
+    for file in res_redo:
+        set_ind = file.find('R') #identify the R notation for the repeated set
+        set_redo = file[:set_ind]
+        start = list(samples[samples['Set'] == str(file)]['Start range'])[0]
+        end = list(samples[samples['Set'] == str(file)]['End range'])[0]
+        sites_ = list(samples[samples['Set'] == str(file)]['Sites'])[0]
+        sites = ['Res '+ str(x) for x in sites_.split(',')]
+        fchange = pd.read_csv(list(samples[samples['Set']\
+                            ==str(file)][folder])[0]\
+                            + str(file) + suffix, index_col = [0])
+        fchange.columns = ['Res '+str(x) for x in list(range(start, end))]
+        fchange = fchange[sites]
+        #find WT residues for the set
+        wt_subseq = [wt_full[int(ind)] for ind in sites_.split(',')]
+        cols = fchange.columns
+        wt_vals = []
+        for row, col in zip(wt_subseq, cols):
+            wt_vals.append(fchange.loc[row, col])
+
+        # Calculate scaling values for slotting in individual residues
+        wt_mean = np.mean(wt_vals)
+        stop_mean = np.mean(fchange.loc['*'])
+        scale_factor = mean_stop[set_redo]/(stop_mean-wt_mean)
+        print(scale_factor)
+        fchange_norm = (fchange - wt_mean)*scale_factor
+
+        set_list_res.append(fchange_norm)
+    all_residues = pd.concat(set_list, axis = 1)
+
+    all_res_redo = pd.concat(set_list_res, axis = 1)
+    all_res_redo = all_res_redo.fillna('NaN')
+    all_residues.update(all_res_redo)
+    order = ['Res '+str(x) for x in range(1, 307)]
+    all_residues = all_residues[order]
+    all_residues = all_residues.applymap(lambda x: x\
+            if not isinstance(x, str) else np.nan)
+    return(all_residues, mean_stop)
