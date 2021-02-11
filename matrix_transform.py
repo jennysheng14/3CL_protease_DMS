@@ -507,7 +507,6 @@ def transform_matrix(folder, suffix, samples, sets, res_redo, all_sets, set21):
             + str(file) + suffix, index_col = [0])
         start = list(samples[samples['Set'] == str(file)]['Start range'])[0]
         end = list(samples[samples['Set'] == str(file)]['End range'])[0]
-        fchange.columns = ['Res '+str(x) for x in list(range(start, end))]
         # name the columns
         wt_subseq = wt_full[start:end] #find WT residues for the set
 
@@ -697,3 +696,193 @@ def transform_matrix_sigma(folder,
     all_residues = all_residues.applymap(lambda x: x\
             if not isinstance(x, str) else np.nan)
     return(all_residues, mean_stop)
+
+def replicate(rep, replicate_folder, cond_suffix, samples,
+        sets, res_redo, set21):
+    '''
+    Tranform the raw foldchanges fro single biological replicates.
+    __________
+    rep: int denoting replicate number
+    replicate folder: column in sample spreadsheet containing
+        replicate info
+    cond_suffix: file suffix for replicate files
+    samples: sample spreadsheet
+    sets: all complete sequencing sets
+    res_redo: all individually resequenced all_residues
+    set21: set 21 to be treated specially for the C terminal portion
+
+    Output: dataframe with score at each amino acid at each residue
+    '''
+    mean_stop = {}
+    len_set = {}
+    rep1_set = []
+    set_list_res = []
+    # replicate 1
+    for file in sets + res_redo + set21:
+        replicate_dir = list(samples[samples['Set'] == \
+            str(file)][replicate_folder])[0]
+        if file in sets:
+            fchange = pd.read_csv(replicate_dir + str(file)
+                    + '_replicate'+str(rep)+cond_suffix, index_col = [0])
+            start = list(samples[samples['Set'] == str(file)]['Start range'])[0]
+            end = list(samples[samples['Set'] == str(file)]['End range'])[0]
+            fchange.columns = ['Res '+str(x) for x in list(range(start, end))]
+            wt_subseq = wt_full[start:end]
+            cols = fchange.columns
+            wt_vals = []
+            for row, col in zip(wt_subseq, cols):
+                wt_vals.append(fchange.loc[row, col])
+
+            wt_mean = np.mean(wt_vals)
+            fchange = fchange - wt_mean
+            mean_stop[str(file)] = np.mean(fchange.loc['*'])
+            len_set[str(file)] = len(fchange.columns)
+
+            stop_mean = np.mean(fchange.loc['*'])
+            scale_factor = -1/stop_mean
+            fchange_norm = fchange*scale_factor
+            rep1_set.append(fchange_norm)
+        elif file in set21:
+            fchange = pd.read_csv(replicate_dir + str(file)
+                    + '_replicate'+str(rep)+cond_suffix, index_col = [0])
+            start = list(samples[samples['Set'] == str(file)]['Start range'])[0]
+            end = list(samples[samples['Set'] == str(file)]['End range'])[0]
+            fchange.columns = ['Res '+str(x) for x in list(range(start, end))]
+            # name the columns
+            wt_subseq = wt_full[start:end] #find WT residues for the set
+
+            #set average wt to 0
+            cols = fchange.columns[:2]
+            wt_vals = []
+            for row, col in zip(wt_subseq, cols):
+                wt_vals.append(fchange.loc[row, col])
+
+            wt_mean = np.mean(wt_vals)
+            fchange = fchange - wt_mean
+            # add to dict for mean stop
+            mean_stop[str(file)] = np.mean(fchange.loc['*'][:2])
+            len_set[str(file)] = 2
+
+            stop_mean = np.mean(fchange.loc['*'][:2])
+            scale_factor = -1/stop_mean
+            fchange_norm = (fchange - wt_mean)*scale_factor
+            rep1_set.append(fchange_norm)
+
+        elif file in res_redo:
+            set_ind = file.find('R') #identify the R notation for the repeated set
+            set_redo = file[:set_ind]
+            start = list(samples[samples['Set'] == str(file)]['Start range'])[0]
+            end = list(samples[samples['Set'] == str(file)]['End range'])[0]
+            sites_ = list(samples[samples['Set'] == str(file)]['Sites'])[0]
+            sites = ['Res '+ str(x) for x in sites_.split(',')]
+            fchange = pd.read_csv(replicate_dir + str(file) + '_replicate'\
+                    + str(rep) + cond_suffix, index_col = [0])
+            fchange.columns = ['Res '+str(x) for x in list(range(start, end))]
+            fchange = fchange[sites]
+            wt_subseq = [wt_full[int(ind)] for ind in sites_.split(',')]
+            cols = fchange.columns
+            wt_vals = []
+            for row, col in zip(wt_subseq, cols):
+                wt_vals.append(fchange.loc[row, col])
+
+            # Calculate scaling values for slotting in individual residues
+            wt_mean = np.mean(wt_vals)
+            stop_mean = np.mean(fchange.loc['*'])
+            scale_factor = -1/stop_mean
+            fchange_norm = fchange *scale_factor
+            set_list_res.append(fchange_norm)
+
+    all_residues = pd.concat(rep1_set, axis = 1)
+    all_res_redo = pd.concat(set_list_res, axis = 1)
+    all_res_redo = all_res_redo.fillna('NaN')
+    all_residues.update(all_res_redo)
+    order = ['Res '+ str(x) for x in range(1, 307)]
+    all_residues = all_residues[order]
+    all_residues = all_residues.applymap(lambda x: x if not \
+            isinstance(x, str) else np.nan)
+    return(all_residues)
+
+def replicate_sigma(rep, replicate_folder, cond_suffix, samples,
+        sets, res_redo):
+    '''
+    Tranform the raw foldchanges fro single biological replicates.
+    __________
+    rep: int denoting replicate number
+    replicate folder: column in sample spreadsheet containing
+        replicate info
+    cond_suffix: file suffix for replicate files
+    samples: sample spreadsheet
+    sets: all complete sequencing sets
+    res_redo: all individually resequenced all_residues
+    set21: set 21 to be treated specially for the C terminal portion
+
+    Output: dataframe with score at each amino acid at each residue
+    '''
+    mean_stop = {}
+    len_set = {}
+    rep1_set = []
+    set_list_res = []
+    # replicate 1
+    for file in sets + res_redo:
+        replicate_dir = list(samples[samples['Set']==str(file)][replicate_folder])[0]
+        if file in sets:
+            fchange = pd.read_csv(replicate_dir + str(file) + '_replicate'+str(rep)+cond_suffix, index_col = [0])
+            start = list(samples[samples['Set'] == str(file)]['Start range'])[0]
+            end = list(samples[samples['Set'] == str(file)]['End range'])[0]
+            fchange.columns = ['Res '+str(x) for x in list(range(start, end))] # name the columns
+            wt_subseq = wt_full[start:end] #find WT residues for the set
+
+            flat_list = np.array([item for sublist in fchange.values for item in sublist])
+            mean = flat_list[~np.isnan(flat_list)].mean() # mean of the set
+            var = flat_list[~np.isnan(flat_list)].var() # variance of the set
+            # set the variance of all set to 1
+            var_norm = (flat_list-mean)/np.sqrt(var)+mean # normalize the set to unit variance
+
+            fchange_norm = (fchange-mean)/np.sqrt(var) + mean # reshape the flat list to original array
+            mean_stop[str(file)] = np.mean(fchange_norm.loc['*']) # add to dict for mean stop
+            len_set[str(file)] = len(fchange_norm.columns)
+            #new label for columns
+            fchange_norm.columns = ['Res '+str(x) for x in list(range(start, end))] # name the columns
+
+            #figure out average wt values for set and linear transform
+            cols = fchange_norm.columns
+            wt_vals = []
+            for row, col in zip(wt_subseq, cols):
+                wt_vals.append(fchange_norm.loc[row, col])
+            fchange_norm = fchange_norm - np.mean(wt_vals)
+            rep1_set.append(fchange_norm)
+
+        elif file in res_redo:
+            set_ind = file.find('R') #identify the R notation for the repeated set
+            set_redo = file[:set_ind]
+            start = list(samples[samples['Set'] == str(file)]['Start range'])[0]
+            end = list(samples[samples['Set'] == str(file)]['End range'])[0]
+            sites_ = list(samples[samples['Set'] == str(file)]['Sites'])[0]
+            sites = ['Res '+ str(x) for x in sites_.split(',')]
+            fchange = pd.read_csv(replicate_dir + str(file) + '_replicate'+str(rep)+cond_suffix, index_col = [0])
+            fchange.columns = ['Res '+str(x) for x in list(range(start, end))]
+            fchange = fchange[sites]
+            wt_subseq = [wt_full[int(ind)] for ind in sites_.split(',')] #find WT residues for the set
+
+            flat_list = np.array([item for sublist in fchange.values for item in sublist])
+            cols = fchange.columns
+            wt_vals = []
+            for row, col in zip(wt_subseq, cols):
+                wt_vals.append(fchange.loc[row, col])
+
+            # Calculate scaling values for slotting in individual residues
+            wt_mean = np.mean(wt_vals)
+            stop_mean = np.mean(fchange.loc['*'])
+            scale_factor = mean_stop[set_redo]/(stop_mean-wt_mean)
+            fchange_norm = (fchange - wt_mean)*scale_factor
+            set_list_res.append(fchange_norm)
+
+    all_residues = pd.concat(rep1_set, axis = 1)
+    all_res_redo = pd.concat(set_list_res, axis = 1)
+    all_res_redo = all_res_redo.fillna('NaN')
+    all_residues.update(all_res_redo)
+    order = ['Res '+ str(x) for x in range(1, 307)]
+    all_residues = all_residues[order]
+    all_residues = all_residues.applymap(lambda x: x if not \
+            isinstance(x, str) else np.nan)
+    return(all_residues)
