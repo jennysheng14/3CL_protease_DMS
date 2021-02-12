@@ -646,7 +646,7 @@ def transform_matrix_sigma(folder,
         # normalize the set to unit variance
         fchange_norm = (fchange-mean)/np.sqrt(var)+mean
         #new label for columns
-        fchange_norm.columns = ['Res '+str(x) for x in list(range(start, end))] # name the columns
+        fchange_norm.columns = ['Res '+str(x) for x in list(range(start, end))]
         #figure out average wt values for set and linear transform
         cols = fchange_norm.columns
         wt_vals = []
@@ -824,25 +824,30 @@ def replicate_sigma(rep, replicate_folder, cond_suffix, samples,
     set_list_res = []
     # replicate 1
     for file in sets + res_redo:
-        replicate_dir = list(samples[samples['Set']==str(file)][replicate_folder])[0]
+        replicate_dir = list(samples[samples['Set']
+                ==str(file)][replicate_folder])[0]
         if file in sets:
-            fchange = pd.read_csv(replicate_dir + str(file) + '_replicate'+str(rep)+cond_suffix, index_col = [0])
+            fchange = pd.read_csv(replicate_dir + str(file)\
+                    + '_replicate'+str(rep)+cond_suffix, index_col = [0])
             start = list(samples[samples['Set'] == str(file)]['Start range'])[0]
             end = list(samples[samples['Set'] == str(file)]['End range'])[0]
-            fchange.columns = ['Res '+str(x) for x in list(range(start, end))] # name the columns
+            fchange.columns = ['Res '+str(x) for x in list(range(start, end))]
             wt_subseq = wt_full[start:end] #find WT residues for the set
 
-            flat_list = np.array([item for sublist in fchange.values for item in sublist])
-            mean = flat_list[~np.isnan(flat_list)].mean() # mean of the set
-            var = flat_list[~np.isnan(flat_list)].var() # variance of the set
+            flat_list = np.array([item for sublist \
+                    in fchange.values for item in sublist])
+            mean = flat_list[~np.isnan(flat_list)].mean()
+            var = flat_list[~np.isnan(flat_list)].var()
             # set the variance of all set to 1
-            var_norm = (flat_list-mean)/np.sqrt(var)+mean # normalize the set to unit variance
+            var_norm = (flat_list-mean)/np.sqrt(var)+mean
 
-            fchange_norm = (fchange-mean)/np.sqrt(var) + mean # reshape the flat list to original array
-            mean_stop[str(file)] = np.mean(fchange_norm.loc['*']) # add to dict for mean stop
+            fchange_norm = (fchange-mean)/np.sqrt(var) + mean
+            # add to dict for mean stop
+            mean_stop[str(file)] = np.mean(fchange_norm.loc['*'])
             len_set[str(file)] = len(fchange_norm.columns)
             #new label for columns
-            fchange_norm.columns = ['Res '+str(x) for x in list(range(start, end))] # name the columns
+            fchange_norm.columns = ['Res '+str(x) for x in \
+                    list(range(start, end))] # name the columns
 
             #figure out average wt values for set and linear transform
             cols = fchange_norm.columns
@@ -853,18 +858,21 @@ def replicate_sigma(rep, replicate_folder, cond_suffix, samples,
             rep1_set.append(fchange_norm)
 
         elif file in res_redo:
-            set_ind = file.find('R') #identify the R notation for the repeated set
+            set_ind = file.find('R') #R denotes the repeated set
             set_redo = file[:set_ind]
             start = list(samples[samples['Set'] == str(file)]['Start range'])[0]
             end = list(samples[samples['Set'] == str(file)]['End range'])[0]
             sites_ = list(samples[samples['Set'] == str(file)]['Sites'])[0]
             sites = ['Res '+ str(x) for x in sites_.split(',')]
-            fchange = pd.read_csv(replicate_dir + str(file) + '_replicate'+str(rep)+cond_suffix, index_col = [0])
+            fchange = pd.read_csv(replicate_dir + str(file) \
+                    + '_replicate'+str(rep)+cond_suffix, index_col = [0])
             fchange.columns = ['Res '+str(x) for x in list(range(start, end))]
             fchange = fchange[sites]
-            wt_subseq = [wt_full[int(ind)] for ind in sites_.split(',')] #find WT residues for the set
+            #find WT residues for the set
+            wt_subseq = [wt_full[int(ind)] for ind in sites_.split(',')]
 
-            flat_list = np.array([item for sublist in fchange.values for item in sublist])
+            flat_list = np.array([item for sublist in fchange.values\
+                    for item in sublist])
             cols = fchange.columns
             wt_vals = []
             for row, col in zip(wt_subseq, cols):
