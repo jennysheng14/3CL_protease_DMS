@@ -1,3 +1,6 @@
 .DS_store
 *.sh
 Additional_analysis
+.ipynb_checkpoints
+Data/count_matrix
+Data/count_matrix_glu_gal_nosyn
