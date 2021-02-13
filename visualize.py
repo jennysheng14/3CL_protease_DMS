@@ -54,7 +54,7 @@ def make_heatmap(df, x_, y_, wt_, show = True, save = False, **kwarg):
                              yaxis_showgrid=False)
     fig.layout.font.family = 'Arial'
     fig.update_layout({
-        'plot_bgcolor': 'rgba(211, 211, 211, 0.7)',
+        'plot_bgcolor': 'rgba(166, 166, 166, 0.7)',
         'paper_bgcolor': 'rgba(0, 0, 0, 0)',
         })
     if show == True:
@@ -98,7 +98,7 @@ def heatmap_patient(
 
 
     fig.update_layout({
-            'plot_bgcolor': 'rgba(211, 211, 211, 0.7)',
+            'plot_bgcolor': 'rgba(166, 166, 166, 0.7)',
             'paper_bgcolor': 'rgba(0, 0, 0, 0)',
             })
     fig.update_layout(xaxis=dict(rangeslider=dict(visible=True),
@@ -150,6 +150,11 @@ def heatmap_rsa(
             colorscale='RdBu', zmid=0,
             zmin = -3),
             row = 4, col = 1)
+    fig.update_layout({
+            'plot_bgcolor': 'rgba(166, 166, 166, 0.7)',
+            'paper_bgcolor': 'rgba(0, 0, 0, 0)',
+            },
+            xaxis_showgrid=False, yaxis_showgrid=False)
 
 # add RSA info
     fig.add_trace(go.Heatmap(
@@ -186,7 +191,7 @@ def heatmap_rsa(
     fig.layout.font.family = 'Arial'
 
     fig.update_layout({
-            'plot_bgcolor': 'rgba(211, 211, 211, 0.7)',
+            'plot_bgcolor': 'rgba(166, 166, 166, 0.7)',
             'paper_bgcolor': 'rgba(0, 0, 0, 0)',
             },
             xaxis_showgrid=False, yaxis_showgrid=False)
