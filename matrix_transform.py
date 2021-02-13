@@ -237,9 +237,10 @@ def transform_dist(
 
             # Calculate scaling values for slotting in individual residues
             wt_mean = np.mean(wt_vals)
+            fchange = fchange-wt_mean
             stop_mean = np.mean(fchange.loc['*'])
             scale_factor = mean_stop[set_redo]/stop_mean
-            fchange_norm = (fchange - wt_mean)*scale_factor
+            fchange_norm = fchange*scale_factor
 
     #         print(x, np.mean(wt_vals), np.var(wt_vals))
             flatten_fchange = fchange_norm.values
@@ -551,6 +552,7 @@ def transform_matrix(folder, suffix, samples, sets, res_redo, all_sets, set21):
 
         # Calculate scaling values for slotting in individual residues
         wt_mean = np.mean(wt_vals)
+        fchange = fchange-wt_mean
         stop_mean = np.mean(fchange.loc['*'])
         scale_factor = -1/stop_mean
         fchange_norm = fchange *scale_factor
