@@ -171,7 +171,8 @@ def heatmap_rsa(
 # add average score info
     fig.add_trace(go.Heatmap(
             z = df.iloc[::-1].mean(),
-            x = x_, y = ['Average']*306, colorscale='RdBu'),
+            x = x_, y = ['Average']*306, colorscale='RdBu',
+            zmid=0,),
             row = 3, col = 1)
 
 # Add marker to denote clinical variants
