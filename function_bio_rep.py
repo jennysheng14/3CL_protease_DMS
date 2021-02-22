@@ -403,7 +403,7 @@ class mutations:
             # Dataframe for amino acid data
             g = sorted_diff.groupby('Translation')
             aa_df = pd.DataFrame(g.mean()['mean']) #mean of all codings
-            aa_df['std_err_of_mean'] = pd.DataFrame(g.std()['mean'])
+            aa_df['std'] = pd.DataFrame(g.std()['mean'])
             aa_df['len'] = pd.DataFrame(g.size())
             # Propogate errors
             # add in standard error of mean here in addn to propogated errors
