@@ -6,3 +6,4 @@ This is repository containing the code and  data for testing SARS-CoV-2 3CL sing
 4. Heatmap data in CSV form can be found [here](https://github.com/ChavezResearchLab/3CL_protease_DMS/blob/main/CSVs/glu_gal_WT_stop_normalize.csv). 
 5. Notebooks for generating individual figures are prefixed in this repository by _Fig_ and point to the figure that they generate. All figures are generated from the jupyter notebooks referring to the figure number of interest.
 6. An interactive version of the heatmap can be found on the [lab website](https://chavezlab.com/).
+7. For raw sequencing reads please refer to NCBI BioProject PRJNA702507.
