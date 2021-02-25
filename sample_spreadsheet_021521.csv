@@ -1,4 +1,15 @@
-﻿Set,Replicate,Folder,Glu,Gal,Gc,Grl,Sequence,Position,Start range,End range,Sites,new_glu_gal,new_glu_gc,new_glu_grl,amino_acid_glu_gal,amino_acid_glu_gc,amino_acid_glu_grl,replicate_folder,replicate_folder_gc,replicate_folder_grl,replicate_folder_nosyn
+﻿# Set denotes the name of the setbeing sequenced.,,,,,,,,,,,,,,,,,,,,,
+# Replicate denotes replicate within a set. There are two replicates per set per condition. Replicates with the same replicate number across conditions are associated.,,,,,,,,,,,,,,,,,,,,,
+# Folder denotes the folder where all sequencing files are deposited.,,,,,,,,,,,,,,,,,,,,,
+# Glu denotes the name of the file of that condition and replicate combination in the uninduced condition,,,,,,,,,,,,,,,,,,,,,
+# Gal denotes the name of the file of that condition and replicate combination in the induced condition,,,,,,,,,,,,,,,,,,,,,
+# Gc denotes the name of the file of that condition and replicate combination in the induced condition with GC376,,,,,,,,,,,,,,,,,,,,,
+# Grl denotes the name of the file of that condition and replicate combination in the induced condition with GRL-0496,,,,,,,,,,,,,,,,,,,,,
+# Sequence references a constant sequence in the sequenced contig used to find the region of interest,,,,,,,,,,,,,,,,,,,,,
+# Position references the codon position of the reference sequence in the gene,,,,,,,,,,,,,,,,,,,,,
+# Start/End range refer to the codons being sequenced in the set (uninclusive of the end point),,,,,,,,,,,,,,,,,,,,,
+# Sites refers to specific sites that were resequenced  individually if they were repeated,,,,,,,,,,,,,,,,,,,,,
+Set,Replicate,Folder,Glu,Gal,Gc,Grl,Sequence,Position,Start range,End range,Sites,new_glu_gal,new_glu_gc,new_glu_grl,amino_acid_glu_gal,amino_acid_glu_gc,amino_acid_glu_grl,replicate_folder,replicate_folder_gc,replicate_folder_grl,replicate_folder_nosyn
 1,1,NGS_run_111920/SDM_files/,A180,A176,A175,A117,TACAAAATG,-2,1,13,,Data/glu_gal_matrices/set,Data/glu_gc_matrices/set,Data/glu_grl_matrices/set,Data/amino_acid_glu_gal/,Data/amino_acid_glu_gc/,Data/amino_acid_glu_grl/,Data/single_replicates/set,Data/single_replicates_gc/set,Data/single_replicates_grl/set,Data/single_replicates_nosyn/set
 1,2,NGS_run_111920/SDM_files/,A116,A110,A185,A166,TACAAAATG,-2,1,13,,Data/glu_gal_matrices/set,Data/glu_gc_matrices/set,Data/glu_grl_matrices/set,Data/amino_acid_glu_gal/,Data/amino_acid_glu_gc/,Data/amino_acid_glu_grl/,Data/single_replicates/set,Data/single_replicates_gc/set,Data/single_replicates_grl/set,Data/single_replicates_nosyn/set
 2,1,NGS_run_111920/SDM_files/,A153,A141,A122,A174,CCATCT,9,13,28,,Data/glu_gal_matrices/set,Data/glu_gc_matrices/set,Data/glu_grl_matrices/set,Data/amino_acid_glu_gal/,Data/amino_acid_glu_gc/,Data/amino_acid_glu_grl/,Data/single_replicates/set,Data/single_replicates_gc/set,Data/single_replicates_grl/set,Data/single_replicates_nosyn/set
