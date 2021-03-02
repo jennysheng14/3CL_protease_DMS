@@ -63,7 +63,42 @@ def make_heatmap(df, x_, y_, wt_, show = True, save = False, **kwarg):
         offline.plot(fig, filename = kwarg['name']+'.html')
         fig.write_image(kwarg['name']+'.pdf')
 
-# yellow /purple color scheme
+def make_heatmap_vert(df, wt_, show = True, save = False, **kwarg):
+    '''
+    Given a list of dataframe generated from
+    amino_acid attribute, return an interactive plotly figure.
+    _________________
+    Input:
+    df: dataframe of amino acids at each site.
+    # x_: x-axis labels
+    # y_: y-axis labels (list in inverted order)
+    wt_: a list of the wildtype residues at each of the amino acid positions
+    if save = True add kwarg name: file path for saving figure
+
+    Output: Plotly figure saved at location specified at filename.
+    Saves an html and a pdf version.
+    '''
+    fig = go.Figure(data = go.Heatmap(z = df,
+                    x = df.columns, y = [int(x[4:]) for x in list(df.index)],
+                    colorscale='RdBu', zmid=0))
+    #Add marker to denote wildtype
+    wt = wt_
+    fig.add_scatter(y=[int(x[4:]) for x in list(df.index)], x = wt_,
+                    mode="markers",
+                    marker=dict(size=4, color="Black"),
+                    name="wt")
+    fig.update_layout(
+        yaxis=dict(autorange='reversed')
+    )
+    fig.update_layout(xaxis_showgrid=False,
+                      yaxis_showgrid=False,
+                      width=600,
+                      height=2200,)
+    if show == True:
+        fig.show()
+    if save == True:
+        offline.plot(fig, filename = kwarg['name']+'.html')
+        fig.write_image(kwarg['name']+'.pdf')
 
 def heatmap_patient(
         df, x_, y_, wt_, position, value, show = True, save = False,**kwarg):
@@ -197,6 +232,110 @@ def heatmap_rsa(
             },
             xaxis_showgrid=False, yaxis_showgrid=False)
     fig.update_yaxes(showgrid=False, row=4, col=1)
+
+    if show == True:
+        fig.show()
+    if save == True:
+        offline.plot(fig, filename = kwarg['name']+'.html')
+        fig.write_image(kwarg['name']+'.pdf')
+
+def heatmap_rsa_vert(
+        df, position, grouped_aa,
+        rsa, single_muts, means, show = True, save = False, **kwarg):
+    '''
+    Given a list of dataframe generated from
+    amino_acid attribute, return an interactive plotly figure.
+    Includes sequenced patient clinical variants, rsa, and secondary
+    structure information.
+    _________________
+    Input:
+    df: dataframe of amino acids at each site.
+    x_: x-axis labels
+    y_: y-axis labels (list in inverted order)
+    wt_: a list of the wildtype residues at each of the amino acid positions
+    position: residue position of clinical variant call
+    if save = True add kwarg name: file path for saving figure
+    rsa: dataframe of rsa information produced by dms-tools2
+    single_muts: list of snv as seen in clinical isolates
+
+    Output: Plotly figure saved at location specified at filename
+    Saves an html and a pdf version
+    '''
+
+
+    fig = subplots.make_subplots(rows=1, cols=4,
+            shared_yaxes=True,
+            vertical_spacing=0.02, column_widths=[0.05, 0.05,0.05, 0.95])
+
+    fig.add_trace(go.Heatmap(
+            z = df,
+            x = df.columns,
+            y = [int(x[4:]) for x in list(df.index)],
+            colorscale='RdBu', zmid=0,
+            zmin = -3),
+            row = 1, col = 4)
+    fig.update_layout({
+            'plot_bgcolor': 'rgba(166, 166, 166, 0.7)',
+            'paper_bgcolor': 'rgba(0, 0, 0, 0)',
+            },
+            xaxis_showgrid=False, yaxis_showgrid=False)
+
+# add RSA info
+    fig.add_trace(go.Heatmap(
+            z = rsa['RSA'],
+            y = rsa['site'], x = ['RSA']*306, colorscale='Blues'),
+            row = 1, col = 2)
+
+# add secondary structure info
+    fig.add_trace(go.Heatmap(
+            z = rsa['SS_num'],
+            y = rsa['site'], x = ['SS']*306, colorscale='RdBu'),
+            row = 1, col = 1)
+
+# add average score info
+    fig.add_trace(go.Heatmap(
+            z = means,
+            y = [int(x[4:]) for x in list(df.index)],
+            x = ['Average']*306, colorscale='RdBu',
+            zmid=0,),
+            row = 1, col = 3)
+
+# Add marker to denote clinical variants
+
+    fig.add_scatter(
+            y=position, x = single_muts, mode="markers",
+            marker=dict(size=5, color="Black", symbol='star-triangle-down'),
+            row = 1, col = 4
+                       )
+# Add marker to denote wildtype
+    wt = wt_full[1:]
+    fig.add_scatter(x=wt, y = [int(x[4:]) for x in list(df.index)],
+            mode="markers",
+            marker=dict(size=4, color="Black"),
+            name="wt", row = 1, col = 4)
+
+
+    fig.layout.font.family = 'Arial'
+
+    fig.update_layout({
+            'plot_bgcolor': 'rgba(166, 166, 166, 0.7)',
+            'paper_bgcolor': 'rgba(0, 0, 0, 0)',
+            },
+            xaxis_showgrid=False,
+            yaxis_showgrid=False,
+            width=900,
+            height=2200,
+            yaxis=dict(autorange='reversed'))
+    fig.update_layout(
+    yaxis = dict(
+        tickmode = 'linear',
+        dtick = 10
+    )
+)
+
+    # fig.update_layout(yaxis=dict(autorange='reversed'), row = 1, column = 1)
+
+    fig.update_yaxes(showgrid=False, row=1, col=4)
 
     if show == True:
         fig.show()
