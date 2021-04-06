@@ -390,6 +390,7 @@ class mutations:
             wt_site = wt[index]
             wt_first_aa = Seq(wt_site[0:3]).translate()[0]
             wt_last_aa = Seq(wt_site[6:9]).translate()[0]
+            wt_AA = str(Seq(wt_site).translate())
             ind = list(site.index)
             ind = [x for x in ind if len(x)==9 and '\n' not in x]
             ind.sort(key = lambda x:(x[3:6], x[0:3], x[6:9]))#sort display order
@@ -405,6 +406,13 @@ class mutations:
             aa_df = pd.DataFrame(g.mean()['mean']) #mean of all codings
             aa_df['std'] = pd.DataFrame(g.std()['mean'])
             aa_df['len'] = pd.DataFrame(g.size())
+            aa_df = aa_df.copy()
+            aa_df.at[wt_AA, 'std'] = np.sqrt((aa_df.loc[wt_AA]['std']**2*\
+                    aa_df.loc[wt_AA]['len'] - aa_df.loc[wt_AA]['mean']**2)\
+                    /(aa_df.loc[wt_AA]['len']-1))
+            aa_df.at[wt_AA, 'mean'] = aa_df.loc[wt_AA]['mean'] *\
+                    aa_df.loc[wt_AA]['len']/(aa_df.loc[wt_AA]['len'] -1)
+            aa_df.at[wt_AA, 'len'] = aa_df.loc[wt_AA]['len'] - 1
             # Propogate errors
             # add in standard error of mean here in addn to propogated errors
     #         aa_df['std'] = g.apply(lambda x: np.sqrt(sum(x**2)))['std']
