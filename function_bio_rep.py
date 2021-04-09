@@ -409,7 +409,7 @@ class mutations:
             aa_df = aa_df.copy()
             aa_df.at[wt_AA, 'std'] = np.sqrt((aa_df.loc[wt_AA]['std']**2*\
                     aa_df.loc[wt_AA]['len'] - aa_df.loc[wt_AA]['mean']**2)\
-                    /(aa_df.loc[wt_AA]['len']-1))
+                    /(aa_df.loc[wt_AA]['len']-2))
             aa_df.at[wt_AA, 'mean'] = aa_df.loc[wt_AA]['mean'] *\
                     aa_df.loc[wt_AA]['len']/(aa_df.loc[wt_AA]['len'] -1)
             aa_df.at[wt_AA, 'len'] = aa_df.loc[wt_AA]['len'] - 1
