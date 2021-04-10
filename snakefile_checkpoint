@@ -21,34 +21,42 @@ seq_3CL = ("TACAAAATG"
 "ACAATTATGAACCTCTAACACAAGACCATGTTGACATACTAGGACCTCTTTCTGCTCAAACTGGAATTGCCGT"
 "TTTAGATATGTGTGCTTCATTAAAAGAATTACTGCAAAATGGTATGAATGGACGTACCATATTGGGTAGTGCTT"
 "TATTAGAAGATGAATTTACACCTTTTGATGTTGTTAGACAATGCTCAGGTGTTACTTTCCAATAA")
+wt_full = ('MSGFRKMAFPSGKVEGCMVQVTCGTTTLNGLWLDDVVYCPRHVICT'
+           'SEDMLNPNYEDLLIRKSNHNFLVQAGNVQLRVIGHSMQNCVLKLKV'
+           'DTANPKTPKYKFVRIQPGQTFSVLACYNGSPSGVYQCAMRPNFTIK'
+           'GSFLNGSCGSVGFNIDYDCVSFCYMHHMELPTGVHAGTDLEGNFYG'
+           'PFVDRQTAQAAGTDTTITVNVLAWLYAAVINGDRWFLNRFTTTLND'
+           'FNLVAMKYNYEPLTQDHVDILGPLSAQTGIAVLDMCASLKELLQNG'
+           'MNGRTILGSALLEDEFTPFDVVRQCSGVTFQ')
 
 amino_acid_list = ['*', 'A', 'C', 'D', 'E', 'F', 'G', 'H',
                    'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R',
                    'S', 'T', 'V', 'W', 'Y']
+amino_acid_list.reverse()
 COMPARISONS = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']
 spreadsheet = "sample_spreadsheet_021521.csv"
-sample = pd.read_csv(spreadsheet, comment = '#')
+samples = pd.read_csv(spreadsheet, comment = '#')
 sets = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18, \
        19,20,21,'R1', '8R', '13R1', '14R', '13R2', '16R',\
        '9R1','9R2', '10R1', '10R2']
-sets = list(sample['Set'])
+sets = set(list(samples['Set']))
 
 def get_fastq_files(sample_spreadsheet):
     '''
     Get the names of all the fastq files required.
     '''
-    sample = pd.read_csv(sample_spreadsheet, comment = '#')
+    samples = pd.read_csv(sample_spreadsheet, comment = '#')
     fastq_files = []
     for s in sets:
         for condition in ['Glu', 'Gal', 'Gc', 'Grl']:
             x = str(s)
-            start = list(sample[sample['Set'] == x]['Start range'])[0]
-            end = list(sample[sample['Set'] == x]['End range'])[0]
+            start = list(samples[samples['Set'] == x]['Start range'])[0]
+            end = list(samples[samples['Set'] == x]['End range'])[0]
             # test to see if I can directly get this data from google bucket
             # files = 'jenny_yeast/'+ list(sample[sample['Set'] == x]['Folder'] + \
             #     sample[sample['Set'] == x][condition] + '_R1.fastq.gz')
-            files = list(sample[sample['Set'] == x]['Folder'] + \
-                    sample[sample['Set'] == x][condition] + '_R1.fastq.gz')
+            files = list(samples[samples['Set'] == x]['Folder'] + \
+                    samples[samples['Set'] == x][condition] + '_R1.fastq.gz')
             fastq_files.append(files)
     return(fastq_files)
 
@@ -123,40 +131,117 @@ def amino_acid_means(cond, wt_site):
     aa_df['len'] = pd.DataFrame(g.size())
     return(aa_df)
 
-amino_acid_list.reverse()
-sets = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18, \
-       19,20,21,'R1', '8R', '13R1', '14R', '13R2', '16R',\
-       '9R1','9R2', '10R1', '10R2']
-
 def properties(spreadsheet):
     '''Define {properties} wildcard.'''
+    samples = pd.read_csv(spreadsheet, comment = '#')
     props = []
     for s in sets:
         x = str(s)
-        start = list(sample[sample['Set'] == x]['Start range'])[0]
-        end = list(sample[sample['Set'] == x]['End range'])[0]
+        start = list(samples[samples['Set'] == x]['Start range'])[0]
+        end = list(samples[samples['Set'] == x]['End range'])[0]
         for ind in range(start, end):
             property = str(x)+'_residue'+str(ind)
             props.append(property)
     return(props)
 
+def sets_and_residues(spreadsheet):
+    '''
+    Define which residues to take from which sets, especially for repeated
+    residues.
+    '''
+    samples = pd.read_csv(spreadsheet, comment = '#')
+    set_ = []
+    res = []
+    for s in sets:
+        x = str(s)
+        if 'R' in str(s) and str(s)!= 'R1':
+            sites = list(samples[samples['Set'] == str(x)]['Sites'])[0]
+            sites = [str(x) for x in sites.split(',')]
+            for site in sites:
+                set_.append(x)
+                res.append(site)
+    for s in sets:
+        x = str(s)
+        if 'R' not in str(s) or str(s) == 'R1':
+            start = list(samples[samples['Set'] == x]['Start range'])[0]
+            end = list(samples[samples['Set'] == x]['End range'])[0]
+            for site in range(start, end):
+                if site not in res:
+                    set_.append(x)
+                    res.append(site)
+    return(list(zip(set_, res)))
 
-def aggregate_amino_acid(wildcards):
+def transform_matrix(spreadsheet, raw_matrix):
     '''
-    Aggregate the file names of files generated at the comp step.
+    Transform each set so that WT fixed at 0 and stop codon is normalized to
+    -1 in each set.
+    __________
+    Input:
+    raw_matrix: matrix of untransformed values
+    spreadsheet: spreadsheet indexing sets and residues
+    set21: set21--treated separately because of the C terminus
     '''
-    checkpoint_output = checkpoints.amino_acid_vals.get(**wildcards).output[0]
-    return glob.glob('amino_acid_dir_*_*/set*_residue*.csv')
+    raw_matrix = pd.read_csv(raw_matrix, index_col = 0)
+    set_res = sets_and_residues(spreadsheet)
+    set_res = pd.DataFrame(set_res, columns = ['set', 'residue'])
+    sets = list(set(pd.DataFrame(set_res, columns = ['set', 'residue'])['set']))
+    mean_stop = {}
+    len_set = {}
+    set_list = []
+    for set_ in sets:
+        residues = [str(x) for x in list(set_res[set_res['set']== set_]['residue'])]
+        if set_ != '21':
+            fchange = raw_matrix[residues]
+            start = min([int(x) for x in residues])
+            end = max([int(x) for x in residues]) + 1
+            wt_subseq = wt_full[start:end] #find WT residues for the set
+            flat_list = np.array([item for sublist in fchange.values\
+                for item in sublist])
+            mean = flat_list[~np.isnan(flat_list)].mean() # mean of the set
+            var = flat_list[~np.isnan(flat_list)].var() # variance of the set
+
+            wt_vals = []
+            for row, col in zip(wt_subseq, residues):
+                wt_vals.append(fchange.loc[row, col])
+
+            wt_mean = np.mean(wt_vals)
+            fchange = fchange - wt_mean
+            mean_stop[str(set_)] = np.mean(fchange.loc['*'])
+            len_set[str(set_)] = len(fchange.columns)
+
+            stop_mean = np.mean(fchange.loc['*'])
+            scale_factor = -1/stop_mean
+            fchange_norm = fchange*scale_factor
+            set_list.append(fchange_norm)
+        elif set_ == '21':
+            fchange = raw_matrix[residues]
+            start = min([int(x) for x in residues])
+            end = max([int(x) for x in residues]) + 1
+            wt_subseq = wt_full[start:end] #find WT residues for the set
+            cols = fchange.columns[:2]
+            wt_vals = []
+            for row, col in zip(wt_subseq, cols):
+                wt_vals.append(fchange.loc[row, col])
+            wt_mean = np.mean(wt_vals)
+            fchange = fchange - wt_mean
+            # add to dict for mean stop
+            mean_stop[str(set_)] = np.mean(fchange.loc['*'][:2])
+            len_set[str(set_)] = 2
+            stop_mean = np.mean(fchange.loc['*'][:2])
+            scale_factor = -1/stop_mean
+            fchange_norm = (fchange - wt_mean)*scale_factor
+            set_list.append(fchange_norm)
+    all_residues = pd.concat(set_list, axis = 1)
+    order = [str(x) for x in range(1, 307)]
+    all_residues = all_residues[order]
+    all_residues = all_residues.applymap(lambda x: x if not \
+        isinstance(x, str) else np.nan)
+    return(all_residues)
 
 rule all:
-    # IDS, glob_wildcards('amino_acid_dir_{id}.csv')
     input:
-        expand('amino_acid_dir_{conditions}/set{properties}.csv',
-            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
-            properties  = properties(spreadsheet)),
-        expand('amino_acid_dir_means_{conditions}/set{properties}.csv',
-            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
-            properties  = properties(spreadsheet))
+        expand('wt_STOP_matrices/{conditions}.csv',
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
 
 rule count_matrix:
     input:
@@ -167,7 +252,7 @@ rule count_matrix:
             cond = ['Glu', 'Gal', 'Gc', 'Grl'], properties = properties(spreadsheet),
             rep = ['0', '1'])
     run:
-        sample = pd.read_csv(spreadsheet, comment = '#')
+        sample = pd.read_csv(input.spreadsheet, comment = '#')
         output_files = []
         threshold = 1
         for s in sets:
@@ -237,13 +322,6 @@ rule comp:
                         name = 'comparisondir_' + comparison[0] + '_' + comparison[1]+'/set' +\
                             str(x)+'_residue'+str(ind)+'_rep'+str(rep)+'.csv'
                         merged.to_csv(name)
-
-# def aggregate_comp(wildcards):
-#     '''
-#     Aggregate the file names of files generated at the comp step.
-#     '''
-#     checkpoint_output = checkpoints.comp.get(**wildcards).output[0]
-#     return glob.glob('comparisondir_*/set*_rep*.csv')
 
 rule replicate:
     input:
@@ -332,3 +410,53 @@ rule amino_acid_means:
                     name = 'amino_acid_dir_means_' + comparison[0] + '_' + comparison[1] +\
                             '/set'+ str(x)+'_residue'+str(ind)+'.csv'
                     aa_vals.to_csv(name)
+
+rule make_raw_matrix:
+    '''
+    Raw foldchanges without normalizations.
+    '''
+    input:
+        expand('amino_acid_dir_means_{conditions}/set{properties}.csv',
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+        properties  = properties(spreadsheet))
+    output:
+        expand('raw_value_matrices/{conditions}.csv',
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
+    run:
+        cols = [str(x) for x in range(1, 307)]
+        set_res = sets_and_residues(spreadsheet)
+        Path('raw_value_matrices').mkdir(parents=True, exist_ok=True)
+        for condition in ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']:
+            matrix = pd.DataFrame(index = amino_acid_list)
+            for pair in set_res:
+                file = 'amino_acid_dir_means_'+ condition + '/set' + str(pair[0]) +\
+                        '_residue' + str(pair[1]) + '.csv'
+                file_df = pd.read_csv(file)
+                file_df['middle'] = file_df.Translation.str[1]
+                file_df.set_index('middle', inplace = True)
+                matrix[str(pair[1])] = file_df['mean']
+            matrix = matrix[cols]
+            matrix.to_csv('raw_value_matrices/'+ condition+'.csv')
+
+rule wt_stop_transform:
+    '''Normalize to STOP codon and WT of the set.'''
+    input:
+        expand('raw_value_matrices/{conditions}.csv',
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
+    output:
+        expand('wt_STOP_matrices/{conditions}.csv',
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
+    run:
+        Path('wt_STOP_matrices').mkdir(parents=True, exist_ok=True)
+        for cond in ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']:
+            normalized = transform_matrix(spreadsheet, 'raw_value_matrices/'+ cond +'.csv')
+            normalized.to_csv('wt_STOP_matrices/' + cond + '.csv')
+
+# rule fig2_heatmap:
+#     input:
+#         expand('wt_STOP_matrices/{conditions}.csv',
+#         conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
+#     log:
+#         notebook = 'logs/Fig2_make_heatmap.py.ipynb'
+#     notebook:
+#         "Fig2_make_heatmap.py.ipynb"
