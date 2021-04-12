@@ -1,0 +1,507 @@
+import pandas as pd
+import function_bio_rep
+import replicates_no_syn
+from Bio.Seq import Seq
+import numpy as np
+from pathlib import Path
+import glob
+# from snakemake.remote.GS import RemoteProvider as GSRemoteProvider
+# GS = GSRemoteProvider()
+
+seq_3CL = ("TACAAAATG"
+"TACAAAATGAGTGGTTTTAGAAAAATGGCATTCCCATCTGGTAAAGTTGAGGGTTGTATGGT"
+"ACAAGTAACTTGTGGTACAACTACACTTAACGGTCTTTGGCTTGATGACGTAGTTTACTGTCCAAGACATGT"
+"GATCTGCACCTCTGAAGACATGCTTAACCCTAATTATGAAGATTTACTCATTCGTAAGTCTAATCATAATTTC"
+"TTGGTACAGGCTGGTAATGTTCAACTCAGGGTTATTGGACATTCTATGCAAAATTGTGTACTTAAGCTTAAGG"
+"TTGATACAGCCAATCCTAAGACACCTAAGTATAAGTTTGTTCGCATTCAACCAGGACAGACTTTTTCAGTGT"
+"TAGCTTGTTACAATGGTTCACCATCTGGTGTTTACCAATGTGCTATGAGGCCCAATTTCACTATTAAGGGTTC"
+"ATTCCTTAATGGTTCATGTGGTAGTGTTGGTTTTAACATAGATTATGACTGTGTCTCTTTTTGTTACATGCAC"
+"CATATGGAATTACCAACTGGAGTTCATGCTGGCACAGACTTAGAAGGTAACTTTTATGGACCTTTTGTTGACA"
+"GGCAAACAGCACAAGCAGCTGGTACGGACACAACTATTACAGTTAATGTTTTAGCTTGGTTGTACGCTGCTGT"
+"TATAAATGGAGACAGGTGGTTTCTCAATCGATTTACCACAACTCTTAATGACTTTAACCTTGTGGCTATGAAGT"
+"ACAATTATGAACCTCTAACACAAGACCATGTTGACATACTAGGACCTCTTTCTGCTCAAACTGGAATTGCCGT"
+"TTTAGATATGTGTGCTTCATTAAAAGAATTACTGCAAAATGGTATGAATGGACGTACCATATTGGGTAGTGCTT"
+"TATTAGAAGATGAATTTACACCTTTTGATGTTGTTAGACAATGCTCAGGTGTTACTTTCCAATAA")
+wt_full = ('MSGFRKMAFPSGKVEGCMVQVTCGTTTLNGLWLDDVVYCPRHVICT'
+           'SEDMLNPNYEDLLIRKSNHNFLVQAGNVQLRVIGHSMQNCVLKLKV'
+           'DTANPKTPKYKFVRIQPGQTFSVLACYNGSPSGVYQCAMRPNFTIK'
+           'GSFLNGSCGSVGFNIDYDCVSFCYMHHMELPTGVHAGTDLEGNFYG'
+           'PFVDRQTAQAAGTDTTITVNVLAWLYAAVINGDRWFLNRFTTTLND'
+           'FNLVAMKYNYEPLTQDHVDILGPLSAQTGIAVLDMCASLKELLQNG'
+           'MNGRTILGSALLEDEFTPFDVVRQCSGVTFQ')
+
+amino_acid_list = ['*', 'A', 'C', 'D', 'E', 'F', 'G', 'H',
+                   'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R',
+                   'S', 'T', 'V', 'W', 'Y']
+amino_acid_list.reverse()
+COMPARISONS = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']
+spreadsheet = "sample_spreadsheet_021521.csv"
+samples = pd.read_csv(spreadsheet, comment = '#')
+sets = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18, \
+       19,20,21,'R1', '8R', '13R1', '14R', '13R2', '16R',\
+       '9R1','9R2', '10R1', '10R2']
+sets = set(list(samples['Set']))
+
+def get_fastq_files(sample_spreadsheet):
+    '''
+    Get the names of all the fastq files required.
+    '''
+    samples = pd.read_csv(sample_spreadsheet, comment = '#')
+    fastq_files = []
+    for s in sets:
+        for condition in ['Glu', 'Gal', 'Gc', 'Grl']:
+            x = str(s)
+            start = list(samples[samples['Set'] == x]['Start range'])[0]
+            end = list(samples[samples['Set'] == x]['End range'])[0]
+            # test to see if I can directly get this data from google bucket
+            # files = 'jenny_yeast/'+ list(sample[sample['Set'] == x]['Folder'] + \
+            #     sample[sample['Set'] == x][condition] + '_R1.fastq.gz')
+            files = list(samples[samples['Set'] == x]['Folder'] + \
+                    samples[samples['Set'] == x][condition] + '_R1.fastq.gz')
+            fastq_files.append(files)
+    return(fastq_files)
+
+def replicate_mean(rep1, rep2, thresh1, thresh2):
+    '''
+    Return the mean value of coding between two biological replicates. If
+    only a single replicate exists take that as the mean.
+    '''
+    rep1 = pd.read_csv(rep1, index_col = 0)
+    rep2 = pd.read_csv(rep2, index_col = 0)
+    rep1_copy = rep1[(rep1['count_x']>thresh1)&(rep1['count_x']>thresh2)]
+    rep2_copy = rep2[(rep2['count_x']>thresh1)&(rep2['count_x']>thresh2)]
+    merged = rep1_copy.merge(rep2_copy, on = \
+        ['site_1', 'site_2', 'site_3'], how = 'outer')
+    merged['mean'] = merged[['ratio_x', 'ratio_y']].mean(axis=1)
+    merged['std'] = merged[['ratio_x', 'ratio_y']].std(axis = 1)
+    merged = merged.set_index(merged['site_1'] + \
+                     merged['site_2'] + \
+                     merged['site_3'])
+    keep = ['N' not in x for x in merged.index]
+    merged = merged[keep]
+    return(merged)
+
+def amino_acids_vals(cond, wt_site):
+    '''
+    Return a dataframe of mean values for the comparison being made--means
+    are averaged between the two replicates.
+    '''
+    cond_df = pd.read_csv(cond, index_col = 0)
+    cond_df.drop(wt_site)
+    wt_first_aa = Seq(wt_site[0:3]).translate()[0]
+    wt_last_aa = Seq(wt_site[6:9]).translate()[0]
+    ind = list(cond_df.index)
+    ind = [x for x in ind if len(x)==9 and '\n' not in x]
+    ind.sort(key = lambda x:(x[3:6], x[0:3], x[6:9]))#sort display order
+    # keep only synonymous on flanking
+    keep_ind = [x for x in ind if Seq(x[0:3]).translate()[0]==\
+    wt_first_aa and Seq(x[6:9]).translate()[0]== wt_last_aa]
+    sorted_diff = cond_df.reindex(keep_ind)
+    codons = [str(Seq(x).translate()) for x in sorted_diff.index]
+    sorted_diff['Translation'] = codons
+    # Dataframe for amino acid data
+    g = sorted_diff.groupby('Translation')
+    aa_df = pd.DataFrame(g['mean'].apply(list)) #mean of all codings
+    # Propogate errors
+    # add in standard error of mean here in addn to propogated errors
+#         aa_df['std'] = g.apply(lambda x: np.sqrt(sum(x**2)))['std']
+    return(aa_df)
+
+def amino_acid_means(cond, wt_site):
+    '''
+    Given dataframe of mean values generated by amino_acid_vals,
+    return mean values.
+    '''
+    cond_df = pd.read_csv(cond, index_col = 0)
+    cond_df.drop(wt_site)
+    wt_first_aa = Seq(wt_site[0:3]).translate()[0]
+    wt_last_aa = Seq(wt_site[6:9]).translate()[0]
+    ind = list(cond_df.index)
+    ind = [x for x in ind if len(x)==9 and '\n' not in x]
+    ind.sort(key = lambda x:(x[3:6], x[0:3], x[6:9]))#sort display order
+    # keep only synonymous on flanking
+    keep_ind = [x for x in ind if Seq(x[0:3]).translate()[0]==\
+    wt_first_aa and Seq(x[6:9]).translate()[0]== wt_last_aa]
+    sorted_diff = cond_df.reindex(keep_ind)
+    codons = [str(Seq(x).translate()) for x in sorted_diff.index]
+    sorted_diff['Translation'] = codons
+    # Dataframe for amino acid data
+    g = sorted_diff.groupby('Translation')
+    aa_df = pd.DataFrame(g.mean()['mean']) #mean of all codings
+    aa_df['std'] = pd.DataFrame(g.std()['mean'])
+    aa_df['len'] = pd.DataFrame(g.size())
+    return(aa_df)
+
+def properties(spreadsheet):
+    '''Define {properties} wildcard.'''
+    samples = pd.read_csv(spreadsheet, comment = '#')
+    props = []
+    for s in sets:
+        x = str(s)
+        start = list(samples[samples['Set'] == x]['Start range'])[0]
+        end = list(samples[samples['Set'] == x]['End range'])[0]
+        for ind in range(start, end):
+            property = str(x)+'_residue'+str(ind)
+            props.append(property)
+    return(props)
+
+def sets_and_residues(spreadsheet):
+    '''
+    Define which residues to take from which sets, especially for repeated
+    residues.
+    '''
+    samples = pd.read_csv(spreadsheet, comment = '#')
+    set_ = []
+    res = []
+    for s in sets:
+        x = str(s)
+        if 'R' in str(s) and str(s)!= 'R1':
+            sites = list(samples[samples['Set'] == str(x)]['Sites'])[0]
+            sites = [str(x) for x in sites.split(',')]
+            for site in sites:
+                set_.append(x)
+                res.append(site)
+    for s in sets:
+        x = str(s)
+        if 'R' not in str(s) or str(s) == 'R1':
+            start = list(samples[samples['Set'] == x]['Start range'])[0]
+            end = list(samples[samples['Set'] == x]['End range'])[0]
+            for site in range(start, end):
+                if str(site) not in res:
+                    set_.append(x)
+                    res.append(str(site))
+    return(list(zip(set_, res)))
+
+def transform_matrix(spreadsheet, raw_matrix):
+    '''
+    Transform each set so that WT fixed at 0 and stop codon is normalized to
+    -1 in each set.
+    __________
+    Input:
+    raw_matrix: matrix of untransformed values
+    spreadsheet: spreadsheet indexing sets and residues
+    set21: set21--treated separately because of the C terminus
+    '''
+    raw_matrix = pd.read_csv(raw_matrix, index_col = 0)
+    set_res = sets_and_residues(spreadsheet)
+    set_res = pd.DataFrame(set_res, columns = ['set', 'residue'])
+    sets = list(set(pd.DataFrame(set_res, columns = ['set', 'residue'])['set']))
+    mean_stop = {}
+    len_set = {}
+    set_list = []
+    for set_ in sets:
+        residues = [str(x) for x in list(set_res[set_res['set']==\
+                set_]['residue'])]
+        if set_ != '21':
+            fchange = raw_matrix[residues]
+            wt_subseq = [wt_full[int(i)] for i in residues] #find WT residues for the set
+            flat_list = np.array([item for sublist in fchange.values\
+                for item in sublist])
+            mean = flat_list[~np.isnan(flat_list)].mean() # mean of the set
+            var = flat_list[~np.isnan(flat_list)].var() # variance of the set
+
+            wt_vals = []
+            for row, col in zip(wt_subseq, residues):
+                wt_vals.append(fchange.loc[row, col])
+            wt_mean = np.mean(wt_vals)
+            fchange = fchange - wt_mean
+            mean_stop[str(set_)] = np.mean(fchange.loc['*'])
+            len_set[str(set_)] = len(fchange.columns)
+
+            stop_mean = np.mean(fchange.loc['*'])
+            scale_factor = -1/stop_mean
+            fchange_norm = fchange*scale_factor
+            set_list.append(fchange_norm)
+        elif set_ == '21':
+            fchange = raw_matrix[residues]
+            wt_subseq = [wt_full[int(i)] for i in residues]
+            cols = fchange.columns[:2]
+            wt_vals = []
+            for row, col in zip(wt_subseq, cols):
+                wt_vals.append(fchange.loc[row, col])
+            wt_mean = np.mean(wt_vals)
+            fchange = fchange - wt_mean
+            # add to dict for mean stop
+            mean_stop[str(set_)] = np.mean(fchange.loc['*'][:2])
+            len_set[str(set_)] = 2
+            stop_mean = np.mean(fchange.loc['*'][:2])
+            scale_factor = -1/stop_mean
+            fchange_norm = (fchange - wt_mean)*scale_factor
+            set_list.append(fchange_norm)
+    all_residues = pd.concat(set_list, axis = 1)
+    order = [str(x) for x in range(1, 307)]
+    all_residues = all_residues[order]
+    all_residues = all_residues.applymap(lambda x: x if not \
+        isinstance(x, str) else np.nan)
+    return(all_residues)
+
+rule all:
+    input:
+        expand('wt_STOP_matrices/{conditions}.csv',
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
+
+rule counts_matrix_no_syn:
+    '''
+    Build count matrix without taking into account synonymous codings.
+    '''
+    input:
+        fastq_files = get_fastq_files("sample_spreadsheet_021521.csv"),
+        spreadsheet = "sample_spreadsheet_021521.csv"
+    output:
+        expand('{cond}_count_matrices_nosyn/set{properties}_resp{rep}.csv',
+            cond = ['Glu', 'Gal', 'Gc', 'Grl'], properties = \
+                    properties(spreadsheet),
+            rep = ['0', '1'])
+    run:
+        sample = pd.read_csv(input.spreadsheet, comment = '#')
+        output_files = []
+        threshold = 1
+        for s in sets:
+            for condition in ['Glu', 'Gal', 'Gc', 'Grl']:
+                x = str(s)
+                start = list(sample[sample['Set'] == x]['Start range'])[0]
+                end = list(sample[sample['Set'] == x]['End range'])[0]
+                files = list(sample[sample['Set'] == x]['Folder'] + \
+                        sample[sample['Set'] == x][condition] + '_R1.fastq.gz')
+                sequence = list(sample[sample['Set'] == x]['Sequence'])[0]
+                position = list(sample[sample['Set'] == x]['Position'])[0]
+                sites = replicates_no_syn.mutations(list(range(start, end)),\
+                        list(range(start, end)))
+                Path(condition+'_count_matrices_nosyn').mkdir(parents=True,\
+                         exist_ok=True)
+                print(sites.sites, sites.all_muts, position, threshold, sequence)
+                for rep in [0, 1]:
+                    count_mat = sites.count_matrix(files[rep], \
+                                                sequence, position, threshold)
+                    for ind, y in enumerate(count_mat):
+                        name = condition+'_count_matrices_nosyn/set'+ str(x)+\
+                        '_residue' + str(start+ind) + '_rep' + str(rep) + '.csv'
+                        y.to_csv(name)
+                    output_files.append(name)
+rule count_matrix:
+    input:
+        fastq_files = get_fastq_files("sample_spreadsheet_021521.csv"),
+        spreadsheet = "sample_spreadsheet_021521.csv"
+    output:
+        expand('{cond}_count_matrices/set{properties}_resp{rep}.csv',
+            cond = ['Glu', 'Gal', 'Gc', 'Grl'], properties = \
+                    properties(spreadsheet),
+            rep = ['0', '1'])
+    run:
+        sample = pd.read_csv(input.spreadsheet, comment = '#')
+        output_files = []
+        threshold = 1
+        for s in sets:
+            for condition in ['Glu', 'Gal', 'Gc', 'Grl']:
+                x = str(s)
+                start = list(sample[sample['Set'] == x]['Start range'])[0]
+                end = list(sample[sample['Set'] == x]['End range'])[0]
+                # test to see if I can directly get this data from google bucket
+                # files = 'jenny_yeast/'+ list(sample[sample['Set'] == x]['Folder'] + \
+                #     sample[sample['Set'] == x][condition] + '_R1.fastq.gz')
+                files = list(sample[sample['Set'] == x]['Folder'] + \
+                        sample[sample['Set'] == x][condition] + '_R1.fastq.gz')
+                sequence = list(sample[sample['Set'] == x]['Sequence'])[0]
+                position = list(sample[sample['Set'] == x]['Position'])[0]
+                sites = function_bio_rep.mutations(list(range(start, end)),\
+                        list(range(start, end)))
+                Path(condition+'_count_matrices').mkdir(parents=True,\
+                         exist_ok=True)
+                print(sites.sites, sites.all_muts, position, threshold, sequence)
+                for rep in [0, 1]:
+                    count_mat = sites.count_matrix(files[rep], \
+                                                sequence, position, threshold)
+                    for ind, y in enumerate(count_mat):
+                        name = condition+'_count_matrices/set'+ str(x)+\
+                        '_residue' + str(start+ind) + '_rep' + str(rep) + '.csv'
+                        y.to_csv(name)
+                    output_files.append(name)
+
+rule comp:
+    input:
+        expand('{cond}_count_matrices/set{properties}.csv',
+            cond = ['Glu', 'Gal', 'Gc', 'Grl'], properties = \
+                    properties(spreadsheet))
+    output:
+        expand('comparisondir_{conditions}/set{properties}_rep{rep}.csv',
+                rep = ['0', '1'],
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+        properties  = properties(spreadsheet))
+    run:
+        sample = pd.read_csv(spreadsheet, comment = '#')
+        output_files = []
+        for s in sets:
+            x = str(s)
+            start = list(sample[sample['Set'] == x]['Start range'])[0]
+            end = list(sample[sample['Set'] == x]['End range'])[0]
+            for comparison in [['Glu', 'Gal'], ['Glu', 'Gc'], ['Glu', 'Grl'],
+                               ['Gal', 'Gc'], ['Gal', 'Grl']]:
+                Path('comparisondir_'+ comparison[0] + '_' +
+                        comparison[1]).mkdir(parents=True, exist_ok=True)
+                for rep in [0, 1]:
+                    for ind in range(start, end):
+                        file1 = comparison[0]+'_count_matrices/set'+ x +\
+                            '_residue'+str(ind)+'_rep'+str(rep)+'.csv'
+                        file2 = comparison[1]+'_count_matrices/set'+ x +\
+                            '_residue'+str(ind)+'_rep'+str(rep)+'.csv'
+                        cond1_dfs = pd.read_csv(file1, index_col = 0)
+                        cond2_dfs = pd.read_csv(file2, index_col = 0)
+                        #dataframes summarizing each cond2 site
+                        cond1_norm = cond1_dfs.copy()
+                        cond2_norm = cond2_dfs.copy()
+                        cond1_norm['proportion'] = cond1_dfs['count']/\
+                            cond1_dfs['count'].iloc[-1]
+                        cond2_norm['proportion'] = cond2_dfs['count']/\
+                            cond2_dfs['count'].iloc[-1]
+
+                        merged = cond1_norm.merge(cond2_norm, on = \
+                        ['site_1', 'site_2', 'site_3'])
+                            # take ratio between conditions
+                        merged['ratio'] = merged['proportion_x'].apply(lambda \
+                                x: np.log2(x))-\
+                                merged['proportion_y'].apply(lambda x: np.log2(x))
+                        name = 'comparisondir_' + comparison[0] + '_' +\
+                                comparison[1]+'/set' +\
+                                str(x)+'_residue'+str(ind)+'_rep'+str(rep)+'.csv'
+                        merged.to_csv(name)
+
+rule replicate:
+    input:
+        expand('comparisondir_{conditions}/set{properties}_rep{rep}.csv', \
+            rep = ['0', '1'],\
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+        properties  = properties(spreadsheet))
+    output:
+        expand('replicatedir_{conditions}/set{properties}.csv',
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+        properties  = properties(spreadsheet))
+    run:
+        sample = pd.read_csv(spreadsheet, comment = '#')
+        output_files = []
+        thresh_dict = {'Glu': 100, 'Gal': 30, 'Grl': 30, 'Gc': 30}
+        for comparison in [['Glu', 'Gal'], ['Glu', 'Gc'], ['Glu', 'Grl'],
+                           ['Gal', 'Gc'], ['Gal', 'Grl']]:
+            Path('replicatedir_' + comparison[0] + '_' + \
+                    comparison[1]).mkdir(parents=True, exist_ok=True)
+            for s in sets:
+                x = str(s)
+                start = list(sample[sample['Set'] == x]['Start range'])[0]
+                end = list(sample[sample['Set'] == x]['End range'])[0]
+                for ind in range(start, end):
+                    file1 = 'comparisondir_'+comparison[0]+'_'+\
+                            comparison[1]+'/set'+ x +\
+                            '_residue'+str(ind)+'_rep0.csv'
+                    file2 = 'comparisondir_'+comparison[0]+'_'+\
+                            comparison[1]+'/set'+ x +\
+                            '_residue'+str(ind)+'_rep1.csv'
+                    replicates = replicate_mean(file1, file2,
+                        thresh_dict[comparison[0]],thresh_dict[comparison[1]])
+                    name = 'replicatedir_'+comparison[0] + '_' + comparison[1]\
+                            +'/set' +\
+                            str(x)+'_residue'+str(ind)+'.csv'
+                    replicates.to_csv(name)
+
+rule amino_acid_vals:
+    input:
+        expand('replicatedir_{conditions}/set{properties}.csv',
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+        properties  = properties(spreadsheet))
+    output:
+        expand('amino_acid_dir_{conditions}/set{properties}.csv',
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+        properties  = properties(spreadsheet))
+    run:
+        sample = pd.read_csv(spreadsheet, comment = '#')
+        for comparison in [['Glu', 'Gal'], ['Glu', 'Gc'], ['Glu', 'Grl'],
+                           ['Gal', 'Gc'], ['Gal', 'Grl']]:
+            Path('amino_acid_dir_' + comparison[0] + '_' + \
+                    comparison[1]).mkdir(parents=True, exist_ok=True)
+            for s in sets:
+                x = str(s)
+                start = list(sample[sample['Set'] == x]['Start range'])[0]
+                end = list(sample[sample['Set'] == x]['End range'])[0]
+                for ind in range(start, end):
+                    file = 'replicatedir_' + comparison[0] + '_' + comparison[1] +\
+                            '/set'+ str(x)+'_residue'+str(ind)+'.csv'
+                    site = function_bio_rep.mutations(list(range(ind, ind+1)), \
+                            list(range(ind, ind+1)))
+                    wt = site.wildtype()
+                    aa_vals = amino_acids_vals(file, wt[0])
+                    name = 'amino_acid_dir_' + comparison[0] + '_' + \
+                            comparison[1] +\
+                            '/set'+ str(x)+'_residue'+str(ind)+'.csv'
+                    aa_vals.to_csv(name)
+
+rule amino_acid_means:
+    input:
+        expand('replicatedir_{conditions}/set{properties}.csv',
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+        properties  = properties(spreadsheet))
+    output:
+        expand('amino_acid_dir_means_{conditions}/set{properties}.csv',
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+        properties  = properties(spreadsheet))
+    run:
+        sample = pd.read_csv(spreadsheet, comment = '#')
+        for comparison in [['Glu', 'Gal'], ['Glu', 'Gc'], ['Glu', 'Grl'],
+                           ['Gal', 'Gc'], ['Gal', 'Grl']]:
+            Path('amino_acid_dir_means_' + comparison[0] + '_' + \
+                    comparison[1]).mkdir(parents=True, exist_ok=True)
+            for s in sets:
+                x = str(s)
+                start = list(sample[sample['Set'] == x]['Start range'])[0]
+                end = list(sample[sample['Set'] == x]['End range'])[0]
+                for ind in range(start, end):
+                    file = 'replicatedir_' + comparison[0] + '_' + comparison[1] +\
+                            '/set'+ str(x)+'_residue'+str(ind)+'.csv'
+                    site = function_bio_rep.mutations(list(range(ind, ind+1)),
+                            list(range(ind, ind+1)))
+                    wt = site.wildtype()
+                    aa_vals = amino_acid_means(file, wt[0])
+                    name = 'amino_acid_dir_means_' + comparison[0] + '_' + \
+                            comparison[1] +\
+                            '/set'+ str(x)+'_residue'+str(ind)+'.csv'
+                    aa_vals.to_csv(name)
+
+rule make_raw_matrix:
+    '''
+    Raw foldchanges without normalizations.
+    '''
+    input:
+        expand('amino_acid_dir_means_{conditions}/set{properties}.csv',
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+        properties  = properties(spreadsheet))
+    output:
+        expand('raw_value_matrices/{conditions}.csv',
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
+    run:
+        cols = [str(x) for x in range(1, 307)]
+        set_res = sets_and_residues(spreadsheet)
+        Path('raw_value_matrices').mkdir(parents=True, exist_ok=True)
+        for condition in ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']:
+            matrix = pd.DataFrame(index = amino_acid_list)
+            for pair in set_res:
+                file = 'amino_acid_dir_means_'+ condition + '/set' + \
+                        str(pair[0]) +\
+                        '_residue' + str(pair[1]) + '.csv'
+                file_df = pd.read_csv(file)
+                file_df['middle'] = file_df.Translation.str[1]
+                file_df.set_index('middle', inplace = True)
+                matrix[str(pair[1])] = file_df['mean']
+            matrix = matrix[cols]
+            matrix.to_csv('raw_value_matrices/'+ condition+'.csv')
+
+rule wt_stop_transform:
+    '''Normalize to STOP codon and WT of the set.'''
+    input:
+        expand('raw_value_matrices/{conditions}.csv',
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
+    output:
+        expand('wt_STOP_matrices/{conditions}.csv',
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
+    run:
+        Path('wt_STOP_matrices').mkdir(parents=True, exist_ok=True)
+        for cond in ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']:
+            normalized = transform_matrix(spreadsheet, 'raw_value_matrices/'+ \
+                    cond +'.csv')
+            normalized.to_csv('wt_STOP_matrices/' + cond + '.csv')
