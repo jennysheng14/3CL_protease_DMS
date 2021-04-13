@@ -1,0 +1,379 @@
+import pandas as pd
+import function_bio_rep
+import replicates_no_syn
+from Bio.Seq import Seq
+import numpy as np
+from pathlib import Path
+import glob
+import re
+import snakemake_funcs as sf
+# from snakemake.remote.GS import RemoteProvider as GSRemoteProvider
+# GS = GSRemoteProvider()
+
+seq_3CL = ("TACAAAATG"
+"TACAAAATGAGTGGTTTTAGAAAAATGGCATTCCCATCTGGTAAAGTTGAGGGTTGTATGGT"
+"ACAAGTAACTTGTGGTACAACTACACTTAACGGTCTTTGGCTTGATGACGTAGTTTACTGTCCAAGACATGT"
+"GATCTGCACCTCTGAAGACATGCTTAACCCTAATTATGAAGATTTACTCATTCGTAAGTCTAATCATAATTTC"
+"TTGGTACAGGCTGGTAATGTTCAACTCAGGGTTATTGGACATTCTATGCAAAATTGTGTACTTAAGCTTAAGG"
+"TTGATACAGCCAATCCTAAGACACCTAAGTATAAGTTTGTTCGCATTCAACCAGGACAGACTTTTTCAGTGT"
+"TAGCTTGTTACAATGGTTCACCATCTGGTGTTTACCAATGTGCTATGAGGCCCAATTTCACTATTAAGGGTTC"
+"ATTCCTTAATGGTTCATGTGGTAGTGTTGGTTTTAACATAGATTATGACTGTGTCTCTTTTTGTTACATGCAC"
+"CATATGGAATTACCAACTGGAGTTCATGCTGGCACAGACTTAGAAGGTAACTTTTATGGACCTTTTGTTGACA"
+"GGCAAACAGCACAAGCAGCTGGTACGGACACAACTATTACAGTTAATGTTTTAGCTTGGTTGTACGCTGCTGT"
+"TATAAATGGAGACAGGTGGTTTCTCAATCGATTTACCACAACTCTTAATGACTTTAACCTTGTGGCTATGAAGT"
+"ACAATTATGAACCTCTAACACAAGACCATGTTGACATACTAGGACCTCTTTCTGCTCAAACTGGAATTGCCGT"
+"TTTAGATATGTGTGCTTCATTAAAAGAATTACTGCAAAATGGTATGAATGGACGTACCATATTGGGTAGTGCTT"
+"TATTAGAAGATGAATTTACACCTTTTGATGTTGTTAGACAATGCTCAGGTGTTACTTTCCAATAA")
+wt_full = ('MSGFRKMAFPSGKVEGCMVQVTCGTTTLNGLWLDDVVYCPRHVICT'
+           'SEDMLNPNYEDLLIRKSNHNFLVQAGNVQLRVIGHSMQNCVLKLKV'
+           'DTANPKTPKYKFVRIQPGQTFSVLACYNGSPSGVYQCAMRPNFTIK'
+           'GSFLNGSCGSVGFNIDYDCVSFCYMHHMELPTGVHAGTDLEGNFYG'
+           'PFVDRQTAQAAGTDTTITVNVLAWLYAAVINGDRWFLNRFTTTLND'
+           'FNLVAMKYNYEPLTQDHVDILGPLSAQTGIAVLDMCASLKELLQNG'
+           'MNGRTILGSALLEDEFTPFDVVRQCSGVTFQ')
+
+amino_acid_list = ['*', 'A', 'C', 'D', 'E', 'F', 'G', 'H',
+                   'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R',
+                   'S', 'T', 'V', 'W', 'Y']
+amino_acid_list.reverse()
+COMPARISONS = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']
+spreadsheet = "sample_spreadsheet_021521.csv"
+samples = pd.read_csv(spreadsheet, comment = '#')
+sets = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18, \
+       19,20,21,'R1', '8R', '13R1', '14R', '13R2', '16R',\
+       '9R1','9R2', '10R1', '10R2']
+sets = set(list(samples['Set']))
+
+rule all:
+    input:
+        expand('amino_acid_nosyn_{conditions}/set{properties}.csv',\
+                conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+                properties  = sf.properties(spreadsheet)),
+        expand('wt_STOP_matrices/{conditions}.csv',
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
+
+rule count_matrix:
+    input:
+        fastq_files = sf.get_fastq_files("sample_spreadsheet_021521.csv"),
+        spreadsheet = "sample_spreadsheet_021521.csv"
+    output:
+        expand('{cond}_count_matrices/set{properties}_rep{rep}.csv',
+            cond = ['Glu', 'Gal', 'Gc', 'Grl'], properties = \
+                    sf.properties(spreadsheet),
+            rep = ['0', '1'])
+    run:
+        sample = pd.read_csv(input.spreadsheet, comment = '#')
+        threshold = 1
+        for s in sets:
+            for condition in ['Glu', 'Gal', 'Gc', 'Grl']:
+                x = str(s)
+                start = list(sample[sample['Set'] == x]['Start range'])[0]
+                end = list(sample[sample['Set'] == x]['End range'])[0]
+                # test to see if I can directly get this data from google bucket
+                # files = 'jenny_yeast/'+ list(sample[sample['Set'] == x]['Folder'] + \
+                #     sample[sample['Set'] == x][condition] + '_R1.fastq.gz')
+                files = list(sample[sample['Set'] == x]['Folder'] + \
+                        sample[sample['Set'] == x][condition] + '_R1.fastq.gz')
+                sequence = list(sample[sample['Set'] == x]['Sequence'])[0]
+                position = list(sample[sample['Set'] == x]['Position'])[0]
+                sites = function_bio_rep.mutations(list(range(start, end)),\
+                        list(range(start, end)))
+                Path(condition+'_count_matrices').mkdir(parents=True,\
+                         exist_ok=True)
+                print(sites.sites, sites.all_muts, position, threshold, sequence)
+                for rep in [0, 1]:
+                    count_mat = sites.count_matrix(files[rep], \
+                                                sequence, position, threshold)
+                    for ind, y in enumerate(count_mat):
+                        name = condition+'_count_matrices/set'+ str(x)+\
+                        '_residue' + str(start+ind) + '_rep' + str(rep) + '.csv'
+                        y.to_csv(name)
+
+rule sum_count_nosyn:
+    input:
+        expand('{cond}_count_matrices/set{properties}_rep{rep}.csv',\
+            cond = ['Glu', 'Gal', 'Gc', 'Grl'], properties = \
+                    sf.properties(spreadsheet),\
+            rep = ['0', '1'])
+    output:
+        expand('counts_nosyn_{cond}/set{properties}_rep{rep}.csv',
+            cond = ['Glu', 'Gal', 'Gc', 'Grl'],\
+            properties = sf.properties(spreadsheet),\
+            rep = ['0', '1'])
+    run:
+        sample = pd.read_csv(spreadsheet, comment = '#')
+        for condition in ['Glu', 'Gal', 'Gc', 'Grl']:
+            for prop in sf.properties(spreadsheet):
+                for rep in [0, 1]:
+                    file = condition+'_count_matrices/set'+ prop +'_rep'+\
+                            str(rep)+'.csv'
+                    res = re.search('residue(.*)_rep' , file)
+                    res = int(res.group(1))
+                    site = function_bio_rep.mutations(list(range(res, res+1)), \
+                            list(range(res, res+1)))
+                    wt = site.wildtype()
+                    counts = sf.sum_counts_nosyn(file, wt[0])
+                    name = 'counts_nosyn_' + condition + \
+                            '/set'+ prop + '_rep' + str(rep) + '.csv'
+                    counts.to_csv(name)
+
+rule comp:
+    input:
+        expand('{cond}_count_matrices/set{properties}.csv',\
+            cond = ['Glu', 'Gal', 'Gc', 'Grl'], properties = \
+                    sf.properties(spreadsheet))
+    output:
+        expand('comparisondir_{conditions}/set{properties}_rep{rep}.csv',\
+                rep = ['0', '1'],\
+                conditions = ['Glu_Gal', 'Glu_Gc', \
+                'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],\
+                properties  = sf.properties(spreadsheet))
+    run:
+        sample = pd.read_csv(spreadsheet, comment = '#')
+        for s in sets:
+            x = str(s)
+            start = list(sample[sample['Set'] == x]['Start range'])[0]
+            end = list(sample[sample['Set'] == x]['End range'])[0]
+            for comparison in [['Glu', 'Gal'], ['Glu', 'Gc'], ['Glu', 'Grl'],
+                               ['Gal', 'Gc'], ['Gal', 'Grl']]:
+                Path('comparisondir_'+ comparison[0] + '_' +\
+                        comparison[1]).mkdir(parents=True, exist_ok=True)
+                for rep in [0, 1]:
+                    for ind in range(start, end):
+                        file1 = comparison[0]+'_count_matrices/set'+ x +\
+                            '_residue'+str(ind)+'_rep'+str(rep)+'.csv'
+                        file2 = comparison[1]+'_count_matrices/set'+ x +\
+                            '_residue'+str(ind)+'_rep'+str(rep)+'.csv'
+                        cond1_dfs = pd.read_csv(file1, index_col = 0)
+                        cond2_dfs = pd.read_csv(file2, index_col = 0)
+                        #dataframes summarizing each cond2 site
+                        cond1_norm = cond1_dfs.copy()
+                        cond2_norm = cond2_dfs.copy()
+                        cond1_norm['proportion'] = cond1_dfs['count']/\
+                            cond1_dfs['count'].iloc[-1]
+                        cond2_norm['proportion'] = cond2_dfs['count']/\
+                            cond2_dfs['count'].iloc[-1]
+                        merged = cond1_norm.merge(cond2_norm, on = \
+                        ['site_1', 'site_2', 'site_3'])
+                            # take ratio between conditions
+                        merged['ratio'] = merged['proportion_x'].apply(lambda \
+                                x: np.log2(x))-\
+                                merged['proportion_y'].apply(lambda x: np.log2(x))
+                        name = 'comparisondir_' + comparison[0] + '_' +\
+                                comparison[1]+'/set' +\
+                                str(x)+'_residue'+str(ind)+'_rep'+str(rep)+'.csv'
+                        merged.to_csv(name)
+
+rule comp_nosyn:
+    input:
+        expand('counts_nosyn_{cond}/set{properties}_rep{rep}.csv',
+                cond = ['Glu', 'Gal', 'Gc', 'Grl'],\
+                properties = sf.properties(spreadsheet),\
+                rep = ['0', '1'])
+    output:
+        expand('comparisondir_nosyn_{conditions}/set{properties}_rep{rep}.csv',
+                rep = ['0', '1'],
+                conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+                properties  = sf.properties(spreadsheet))
+    run:
+        sample = pd.read_csv(spreadsheet, comment = '#')
+        for comparison in [['Glu', 'Gal'], ['Glu', 'Gc'], ['Glu', 'Grl'],
+                           ['Gal', 'Gc'], ['Gal', 'Grl']]:
+            for prop in sf.properties(spreadsheet):
+                for rep in [0, 1]:
+                    file1 = 'counts_nosyn_'+ comparison[0]+'/set'+ prop +'_rep'\
+                            + str(rep)+'.csv'
+                    file2 = 'counts_nosyn_'+ comparison[1]+'/set'+ prop +'_rep'\
+                            + str(rep)+'.csv'
+                    cond1_dfs = pd.read_csv(file1, index_col = 0)
+                    cond2_dfs = pd.read_csv(file2, index_col = 0)
+                    cond1_norm = cond1_dfs.copy()
+                    cond2_norm = cond2_dfs.copy()
+                    res = re.search('residue(.*)_rep' , file1)
+                    res = int(res.group(1))
+                    site = function_bio_rep.mutations(list(range(res, res+1)), \
+                            list(range(res, res+1)))
+                    wt = site.wildtype()[0][3:6]
+                    cond1_norm['proportion'] = cond1_dfs['count']/\
+                        cond1_dfs['count'].loc[wt]
+                    cond2_norm['proportion'] = cond2_dfs['count']/\
+                        cond2_dfs['count'].loc[wt]
+                    merged = cond1_norm.merge(cond2_norm, on = 'site_2')
+                        # take ratio between conditions
+                    merged['ratio'] = merged['proportion_x'].apply(lambda \
+                            x: np.log2(x))-\
+                            merged['proportion_y'].apply(lambda x: np.log2(x))
+                    name = 'comparisondir_nosyn_' + comparison[0] + '_' +\
+                            comparison[1]+'/set' +\
+                            prop+'_rep'+str(rep)+'.csv'
+                    merged.to_csv(name)
+
+rule replicate:
+    input:
+        expand('comparisondir_{conditions}/set{properties}_rep{rep}.csv', \
+            rep = ['0', '1'],\
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+        properties  = sf.properties(spreadsheet))
+    output:
+        expand('replicatedir_{conditions}/set{properties}.csv',
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+        properties  = sf.properties(spreadsheet))
+    run:
+        sample = pd.read_csv(spreadsheet, comment = '#')
+        thresh_dict = {'Glu': 100, 'Gal': 30, 'Grl': 30, 'Gc': 30}
+        for comparison in [['Glu', 'Gal'], ['Glu', 'Gc'], ['Glu', 'Grl'],
+                           ['Gal', 'Gc'], ['Gal', 'Grl']]:
+            Path('replicatedir_' + comparison[0] + '_' + \
+                    comparison[1]).mkdir(parents=True, exist_ok=True)
+            for s in sets:
+                x = str(s)
+                start = list(sample[sample['Set'] == x]['Start range'])[0]
+                end = list(sample[sample['Set'] == x]['End range'])[0]
+                for ind in range(start, end):
+                    file1 = 'comparisondir_'+comparison[0]+'_'+\
+                            comparison[1]+'/set'+ x +\
+                            '_residue'+str(ind)+'_rep0.csv'
+                    file2 = 'comparisondir_'+comparison[0]+'_'+\
+                            comparison[1]+'/set'+ x +\
+                            '_residue'+str(ind)+'_rep1.csv'
+                    replicates = sf.replicate_mean(file1, file2,\
+                        thresh_dict[comparison[0]],thresh_dict[comparison[1]])
+                    name = 'replicatedir_'+comparison[0] + '_' + comparison[1]\
+                            +'/set' +\
+                            str(x)+'_residue'+str(ind)+'.csv'
+                    replicates.to_csv(name)
+
+rule amino_acid_vals:
+    input:
+        expand('replicatedir_{conditions}/set{properties}.csv',
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+        properties  = sf.properties(spreadsheet))
+    output:
+        expand('amino_acid_dir_{conditions}/set{properties}.csv',
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+        properties  = sf.properties(spreadsheet))
+    run:
+        sample = pd.read_csv(spreadsheet, comment = '#')
+        for comparison in [['Glu', 'Gal'], ['Glu', 'Gc'], ['Glu', 'Grl'],
+                           ['Gal', 'Gc'], ['Gal', 'Grl']]:
+            Path('amino_acid_dir_' + comparison[0] + '_' + \
+                    comparison[1]).mkdir(parents=True, exist_ok=True)
+            for s in sets:
+                x = str(s)
+                start = list(sample[sample['Set'] == x]['Start range'])[0]
+                end = list(sample[sample['Set'] == x]['End range'])[0]
+                for ind in range(start, end):
+                    file = 'replicatedir_' + comparison[0] + '_' + comparison[1] +\
+                            '/set'+ str(x)+'_residue'+str(ind)+'.csv'
+                    site = function_bio_rep.mutations(list(range(ind, ind+1)), \
+                            list(range(ind, ind+1)))
+                    wt = site.wildtype()
+                    aa_vals = sf.amino_acids_vals(file, wt[0])
+                    name = 'amino_acid_dir_' + comparison[0] + '_' + \
+                            comparison[1] +\
+                            '/set'+ str(x)+'_residue'+str(ind)+'.csv'
+                    aa_vals.to_csv(name)
+
+rule amino_acid_nosyn:
+    input:
+        expand('comparisondir_nosyn_{conditions}/set{properties}_rep{rep}.csv',
+                rep = ['0', '1'],
+                conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+                properties  = sf.properties(spreadsheet))
+    output:
+        expand('amino_acid_nosyn_{conditions}/set{properties}.csv',\
+                conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+                properties  = sf.properties(spreadsheet))
+    run:
+        sample = pd.read_csv(spreadsheet, comment = '#')
+        for cond in ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']:
+            for prop in sf.properties(spreadsheet):
+                file1 = 'comparisondir_nosyn_' + cond + '/set' + prop + \
+                        '_rep0.csv'
+                file2 = 'comparisondir_nosyn_' + cond + '/set' + prop + \
+                        '_rep1.csv'
+                file1_df = pd.read_csv(file1, index_col = 0)
+                file2_df = pd.read_csv(file2, index_col = 0)
+                res = re.search('residue(.*)_rep' , file1)
+                res = int(res.group(1))
+                site = function_bio_rep.mutations(list(range(res, res+1)), \
+                        list(range(res, res+1)))
+                wt = site.wildtype()[0][3:6]
+                aa_df = sf.amino_acid_nosyn(file1_df, file2_df, wt)
+                name = 'amino_acid_nosyn_' + cond + '/set' + prop + '.csv'
+                aa_df.to_csv(name)
+
+
+rule amino_acid_means:
+    input:
+        expand('replicatedir_{conditions}/set{properties}.csv',
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+        properties  = sf.properties(spreadsheet))
+    output:
+        expand('amino_acid_dir_means_{conditions}/set{properties}.csv',
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+        properties  = sf.properties(spreadsheet))
+    run:
+        sample = pd.read_csv(spreadsheet, comment = '#')
+        for comparison in [['Glu', 'Gal'], ['Glu', 'Gc'], ['Glu', 'Grl'],
+                           ['Gal', 'Gc'], ['Gal', 'Grl']]:
+            Path('amino_acid_dir_means_' + comparison[0] + '_' + \
+                    comparison[1]).mkdir(parents=True, exist_ok=True)
+            for s in sets:
+                x = str(s)
+                start = list(sample[sample['Set'] == x]['Start range'])[0]
+                end = list(sample[sample['Set'] == x]['End range'])[0]
+                for ind in range(start, end):
+                    file = 'replicatedir_' + comparison[0] + '_' + comparison[1] +\
+                            '/set'+ str(x)+'_residue'+str(ind)+'.csv'
+                    site = function_bio_rep.mutations(list(range(ind, ind+1)),
+                            list(range(ind, ind+1)))
+                    wt = site.wildtype()
+                    aa_vals = sf.amino_acid_means(file, wt[0])
+                    name = 'amino_acid_dir_means_' + comparison[0] + '_' + \
+                            comparison[1] +\
+                            '/set'+ str(x)+'_residue'+str(ind)+'.csv'
+                    aa_vals.to_csv(name)
+
+rule make_raw_matrix:
+    '''
+    Raw foldchanges without normalizations.
+    '''
+    input:
+        expand('amino_acid_dir_means_{conditions}/set{properties}.csv',
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+        properties  = sf.properties(spreadsheet))
+    output:
+        expand('raw_value_matrices/{conditions}.csv',
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
+    run:
+        cols = [str(x) for x in range(1, 307)]
+        set_res = sets_and_residues(spreadsheet)
+        Path('raw_value_matrices').mkdir(parents=True, exist_ok=True)
+        for condition in ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']:
+            matrix = pd.DataFrame(index = amino_acid_list)
+            for pair in set_res:
+                file = 'amino_acid_dir_means_'+ condition + '/set' + \
+                        str(pair[0]) +\
+                        '_residue' + str(pair[1]) + '.csv'
+                file_df = pd.read_csv(file)
+                file_df['middle'] = file_df.Translation.str[1]
+                file_df.set_index('middle', inplace = True)
+                matrix[str(pair[1])] = file_df['mean']
+            matrix = matrix[cols]
+            matrix.to_csv('raw_value_matrices/'+ condition+'.csv')
+
+rule wt_stop_transform:
+    '''Normalize to STOP codon and WT of the set.'''
+    input:
+        expand('raw_value_matrices/{conditions}.csv',
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
+    output:
+        expand('wt_STOP_matrices/{conditions}.csv',
+        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
+    run:
+        Path('wt_STOP_matrices').mkdir(parents=True, exist_ok=True)
+        for cond in ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']:
+            normalized = sf.transform_matrix(spreadsheet, 'raw_value_matrices/'+ \
+                    cond +'.csv')
+            normalized.to_csv('wt_STOP_matrices/' + cond + '.csv')
