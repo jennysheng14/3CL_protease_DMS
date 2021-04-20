@@ -270,7 +270,7 @@ class mutations:
             middle = [x[1] for x in count_list]
             count_dict = Counter(middle) #count of unique combos
             dict_keys = list(count_dict.keys())
-            dict_keys.sort(key = lambda x:x[1]) #sort list based on second
+            dict_keys.sort(key = lambda x:x[0])
             # codon: SDM codon
             index_map = {v: i for i, v in enumerate(dict_keys)}
             sorted_count = sorted(count_dict.items(), key=lambda pair: \
@@ -338,7 +338,7 @@ class mutations:
             ['site_2'])
             # take ratio between conditions
             merged['ratio'] = np.log2(merged['count_x'])-\
-            np.log2(merged['count_y'])
+                    np.log2(merged['count_y'])
             ratio.append(merged)
         return(ratio)
 

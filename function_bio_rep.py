@@ -390,6 +390,7 @@ class mutations:
             wt_site = wt[index]
             wt_first_aa = Seq(wt_site[0:3]).translate()[0]
             wt_last_aa = Seq(wt_site[6:9]).translate()[0]
+            wt_AA = str(Seq(wt_site).translate())
             ind = list(site.index)
             ind = [x for x in ind if len(x)==9 and '\n' not in x]
             ind.sort(key = lambda x:(x[3:6], x[0:3], x[6:9]))#sort display order
@@ -405,6 +406,57 @@ class mutations:
             aa_df = pd.DataFrame(g.mean()['mean']) #mean of all codings
             aa_df['std'] = pd.DataFrame(g.std()['mean'])
             aa_df['len'] = pd.DataFrame(g.size())
+            aa_df = aa_df.copy()
+            aa_df.at[wt_AA, 'std'] = np.sqrt((aa_df.loc[wt_AA]['std']**2*\
+                    aa_df.loc[wt_AA]['len'] - aa_df.loc[wt_AA]['mean']**2)\
+                    /(aa_df.loc[wt_AA]['len']-2))
+            aa_df.at[wt_AA, 'mean'] = aa_df.loc[wt_AA]['mean'] *\
+                    aa_df.loc[wt_AA]['len']/(aa_df.loc[wt_AA]['len'] -1)
+            aa_df.at[wt_AA, 'len'] = aa_df.loc[wt_AA]['len'] - 1
+            # Propogate errors
+            # add in standard error of mean here in addn to propogated errors
+    #         aa_df['std'] = g.apply(lambda x: np.sqrt(sum(x**2)))['std']
+            aa_amal.append(aa_df)
+        return(aa_amal)
+
+    def amino_acids_vals(self, cond1, cond2, sequence, position,
+            thresh1, thresh2):
+        '''
+        Compares expression values between two conditions based on amino acids.
+        Processed from the codons from comparison function.
+        ___________
+        Input:
+        cond1-- list of files for cond1.
+        cond2-- list of files for cond2.
+        sequence-- reference sequence
+        position-- codon position of reference sequence
+        Output:
+        Outputs all of the raw foldchanges associated with a coding
+        Log(mut_cond1/wt_cond1)-Log(mut_cond2/wt_cond2)
+        '''
+
+        seq_df = self.replicate(cond1, cond2, sequence, position, thresh1,
+            thresh2)
+        wt = self.wildtype()
+
+        aa_amal = []
+        for index, site in enumerate(seq_df):
+            wt_site = wt[index]
+            wt_first_aa = Seq(wt_site[0:3]).translate()[0]
+            wt_last_aa = Seq(wt_site[6:9]).translate()[0]
+            ind = list(site.index)
+            ind = [x for x in ind if len(x)==9 and '\n' not in x]
+            ind.sort(key = lambda x:(x[3:6], x[0:3], x[6:9]))#sort display order
+            # keep only synonymous on flanking
+            keep_ind = [x for x in ind if Seq(x[0:3]).translate()[0]==\
+            wt_first_aa and Seq(x[6:9]).translate()[0]== wt_last_aa]
+            sorted_diff = site.reindex(keep_ind)
+
+            codons = [str(Seq(x).translate()) for x in sorted_diff.index]
+            sorted_diff['Translation'] = codons
+            # Dataframe for amino acid data
+            g = sorted_diff.groupby('Translation')
+            aa_df = pd.DataFrame(g['mean'].apply(list)) #mean of all codings
             # Propogate errors
             # add in standard error of mean here in addn to propogated errors
     #         aa_df['std'] = g.apply(lambda x: np.sqrt(sum(x**2)))['std']
