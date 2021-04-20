@@ -24,7 +24,7 @@ wt_full = ('MSGFRKMAFPSGKVEGCMVQVTCGTTTLNGLWLDDVVYCPRHVICT'
            'MNGRTILGSALLEDEFTPFDVVRQCSGVTFQ')
 
 def original_dist(
-        folder, suffix, subplot_titles, samples, sets, res_redo,
+        folder, suffix, samples, sets, res_redo,
         all_sets, save = False, **kwarg):
     '''
     Distribution shape of original scores from screen.
@@ -37,8 +37,7 @@ def original_dist(
     '''
 
     fig = make_subplots(
-    rows=5, cols=6,
-    subplot_titles=subplot_titles)
+    rows=5, cols=6)
 
     layout= itertools.product(range(1,6), range(1,7))
     for x, pos in list(zip(sets + res_redo, layout)):
@@ -53,7 +52,7 @@ def original_dist(
                     start=min(flat_list),
                     end=max(flat_list),
                     size=0.25
-                ),), row=pos[0], col=pos[1])
+                ),text = str(x)), row=pos[0], col=pos[1])
 
         # new replicates single residues
         elif x in res_redo:
@@ -72,7 +71,7 @@ def original_dist(
                     start=min(flat_list),
                     end=max(flat_list),
                     size=0.25
-                ),), row=pos[0], col=pos[1])
+                ),text = str(x)), row=pos[0], col=pos[1], )
 
     fig.update_layout(height=700, width=900,
                       title_text=kwarg['title'])
@@ -115,7 +114,7 @@ def transform_sigma(folder, suffix, samples, sets, res_redo, all_sets):
     return(sigma_list)
 
 def transform_dist(
-        folder, suffix, subplot_titles, samples,
+        folder, suffix, samples,
         sets, res_redo, all_sets, set21, save = False, **kwarg):
     '''
     Distribution shape of original scores from screen.
@@ -134,8 +133,7 @@ def transform_dist(
     len_set = {}
 
     fig = make_subplots(
-    rows=5, cols=6,
-    subplot_titles=subplot_titles)
+    rows=5, cols=6)
     layout= itertools.product(range(1,6), range(1,7))
     for x, pos in list(zip(sets + res_redo + set21, layout)):
         if x in sets:
@@ -175,7 +173,7 @@ def transform_dist(
                     start=min(flat_list),
                     end=max(flat_list),
                     size=0.25
-                ),), row=pos[0], col=pos[1])
+                ),text = str(x)), row=pos[0], col=pos[1], )
 
         elif x in set21:
             fchange = pd.read_csv(list(samples[samples['Set']==\
@@ -214,7 +212,7 @@ def transform_dist(
                     start=min(flat_list),
                     end=max(flat_list),
                     size=0.25
-                ),), row=pos[0], col=pos[1])
+                ),text = str(x)), row=pos[0], col=pos[1], )
 
         else: # for all individually repeated residues
             set_ind = x.find('R') #identify the R notation for the repeated set
@@ -252,7 +250,7 @@ def transform_dist(
                     start=min(flat_list),
                     end=max(flat_list),
                     size=0.25
-                ),), row=pos[0], col=pos[1])
+                ),text = str(x)), row=pos[0], col=pos[1])
 
     fig.update_layout(height=700, width=900,
                       title_text=kwarg['title'])
@@ -261,7 +259,7 @@ def transform_dist(
         plotly.offline.plot(fig, filename = kwarg['name'])
 
 def transform_dist_sigma(
-        folder, suffix, subplot_titles, samples,
+        folder, suffix, samples,
             sets, res_redo, all_sets, save = False, **kwarg):
     '''
     Distribution shape of original scores from screen. WT from each set
@@ -286,8 +284,7 @@ def transform_dist_sigma(
     len_set = {}
 
     fig = make_subplots(
-    rows=5, cols=6,
-    subplot_titles=subplot_titles)
+    rows=5, cols=6)
     layout= itertools.product(range(1,6), range(1,7))
     for x, pos in list(zip(sets + res_redo, layout)):
         if x in sets:
