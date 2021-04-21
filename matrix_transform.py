@@ -32,7 +32,6 @@ def original_dist(
     Input:
     folder: column name in sample spreadsheet that points to folder
     suffix: suffix of the file name
-    subplot_titles: title of plots
     if save = True add kwarg name: file path for saving figure
     '''
 
@@ -122,7 +121,6 @@ def transform_dist(
     Input:
     folder: column name in sample spreadsheet that points to folder
     suffix: suffix of the file name
-    subplot_titles: title of plots
     if save = True add kwarg name: file path for saving figure
 
     '''
@@ -268,7 +266,6 @@ def transform_dist_sigma(
     Input:
     folder: column name in sample spreadsheet that points to folder
     suffix: suffix of the file name
-    subplot_titles: title of plots
     samples: dataframe of sample_spreadsheet with data specs
     sets: complete sets
     res_redo: residues that were individually sequenced
@@ -376,7 +373,6 @@ def transform_dist_mat(folder, suffix, samples, sets, res_redo, all_sets):
     Input:
     folder: column name in sample spreadsheet that points to folder
     suffix: suffix of the file name
-    subplot_titles: title of plots
     if save = True add kwarg name: file path for saving figure
 
     '''

@@ -1,4 +1,7 @@
+<<<<<<< HEAD
+=======
 NGS_run_042021
+>>>>>>> 7cb230ba409367f91467456621943f077430b953
 .DS_Store
 *.sh
 Additional_analysis
@@ -6,4 +9,5 @@ Additional_analysis
 Data/count_matrix
 Data/count_matrix_glu_gal_nosyn
 Epistasis.ipynb
+NGS_run_042021
 CSVs/SRA_submission.xlsx
