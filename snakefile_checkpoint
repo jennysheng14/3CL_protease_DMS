@@ -46,24 +46,10 @@ sets = set(list(samples['Set']))
 
 rule all:
     input:
-<<<<<<< HEAD
         "logs/notebooks/processed_p_values_nosyn.py.ipynb",
         expand('wt_STOP_matrices/{conditions}.csv',
             conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']),
         expand('std_wt_STOP/{conditions}.csv',
-=======
-<<<<<<< HEAD
-        "logs/notebooks/processed_p_values_nosyn.py.ipynb",
-        expand('wt_STOP_matrices/{conditions}.csv',
-            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']),
-        expand('std_wt_STOP/{conditions}.csv',
-=======
-        expand('amino_acid_nosyn_{conditions}/set{properties}.csv',\
-                conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
-                properties  = sf.properties(spreadsheet)),
-        expand('wt_STOP_matrices/{conditions}.csv',
->>>>>>> ba44b4aecae034e218ff16b7fea508545c9a38a5
->>>>>>> 7cb230ba409367f91467456621943f077430b953
             conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
 
 rule count_matrix:
@@ -71,24 +57,10 @@ rule count_matrix:
         fastq_files = sf.get_fastq_files(spreadsheet),
         spreadsheet = spreadsheet
     output:
-<<<<<<< HEAD
         protected(expand('{cond}_count_matrices/set{properties}_rep{rep}.csv',
             cond = ['Glu', 'Gal', 'Gc', 'Grl'], properties = \
                     sf.properties(spreadsheet),
             rep = ['0', '1']))
-=======
-<<<<<<< HEAD
-        protected(expand('{cond}_count_matrices/set{properties}_rep{rep}.csv',
-            cond = ['Glu', 'Gal', 'Gc', 'Grl'], properties = \
-                    sf.properties(spreadsheet),
-            rep = ['0', '1']))
-=======
-        expand('{cond}_count_matrices/set{properties}_rep{rep}.csv',
-            cond = ['Glu', 'Gal', 'Gc', 'Grl'], properties = \
-                    sf.properties(spreadsheet),
-            rep = ['0', '1'])
->>>>>>> ba44b4aecae034e218ff16b7fea508545c9a38a5
->>>>>>> 7cb230ba409367f91467456621943f077430b953
     run:
         sample = pd.read_csv(input.spreadsheet, comment = '#')
         threshold = 1
@@ -111,10 +83,6 @@ rule count_matrix:
                 print(sites.sites, sites.all_muts, position, threshold, sequence)
                 for rep in [0, 1]:
                     count_mat = sites.count_matrix(files[rep], \
-<<<<<<< HEAD
-                                sequence, position, threshold)
-=======
-<<<<<<< HEAD
                                 sequence, position, threshold)
                     for ind, y in enumerate(count_mat):
                         name = condition+'_count_matrices/set'+ str(x)+\
@@ -153,50 +121,6 @@ rule amalgamate_count_for_deseq2:
             all_cond_list.append(per_prop_df)
         test = pd.concat(all_cond_list)
 
-=======
-                                                sequence, position, threshold)
->>>>>>> 7cb230ba409367f91467456621943f077430b953
-                    for ind, y in enumerate(count_mat):
-                        name = condition+'_count_matrices/set'+ str(x)+\
-                                '_residue' + str(start+ind) + '_rep' +\
-                                str(rep) + '.csv'
-                        y.to_csv(name)
-
-<<<<<<< HEAD
-rule amalgamate_count_for_deseq2:
-    input:
-        expand('{cond}_count_matrices/set{properties}_rep{rep}.csv',
-            cond = ['Glu', 'Gal', 'Gc', 'Grl'], properties = \
-                    sf.properties(spreadsheet),
-            rep = ['0', '1'])
-    output:
-    run:
-        all_cond_list = []
-        for condition in ['Glu', 'Gal', 'Gc', 'Grl']:
-            per_prop_df = pd.DataFrame()
-            for property in sf.properties(spreadsheet):
-                file1 = condition+'_count_matrices/set' +\
-                        property + '_rep0.csv'
-                file2 = condition+'_count_matrices/set' +\
-                        property + '_rep1.csv'
-                res = re.search('residue(.*)_rep' , file1)
-                res = int(res.group(1))
-                counts1 = pd.read_csv(file1, index_col = 0)
-                counts2 = pd.read_csv(file2, index_col = 0)
-                counts1['variant'] = str(res) + counts1['site_1'] +\
-                        counts1['site_2'] + counts1['site_3']
-                counts2['variant'] = str(res) + counts2['site_1'] +\
-                        counts2['site_2'] + counts2['site_3']
-                replicate_merged = counts1.merge(counts2, on = 'variant')
-                replicate_merged.set_index('variant', inplace = True)
-                per_prop_df = per_prop_df.append(replicate_merged,\
-                        ignore_index = True)
-            all_cond_list.append(per_prop_df)
-        test = pd.concat(all_cond_list)
-
-=======
->>>>>>> ba44b4aecae034e218ff16b7fea508545c9a38a5
->>>>>>> 7cb230ba409367f91467456621943f077430b953
 rule sum_count_nosyn:
     input:
         expand('{cond}_count_matrices/set{properties}_rep{rep}.csv',\
@@ -445,11 +369,6 @@ rule make_raw_matrix:
     '''
     input:
         expand('amino_acid_dir_means_{conditions}/set{properties}.csv',
-<<<<<<< HEAD
-            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
-            properties  = sf.properties(spreadsheet))
-=======
-<<<<<<< HEAD
             conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
             properties  = sf.properties(spreadsheet))
     output:
@@ -465,27 +384,6 @@ rule make_raw_matrix:
         for condition in ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']:
             matrix = pd.DataFrame(index = amino_acid_list)
             matrix_std = pd.DataFrame(index = amino_acid_list)
-=======
-        conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
-        properties  = sf.properties(spreadsheet))
->>>>>>> 7cb230ba409367f91467456621943f077430b953
-    output:
-        expand('raw_value_matrices/{conditions}.csv',
-            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']),
-        expand('raw_value_matrices_stdem/{conditions}.csv',
-            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
-    run:
-        cols = [str(x) for x in range(1, 307)]
-        set_res = sf.sets_and_residues(spreadsheet)
-        Path('raw_value_matrices').mkdir(parents=True, exist_ok=True)
-        Path('raw_value_matrices_stdem').mkdir(parents=True, exist_ok=True)
-        for condition in ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']:
-            matrix = pd.DataFrame(index = amino_acid_list)
-<<<<<<< HEAD
-            matrix_std = pd.DataFrame(index = amino_acid_list)
-=======
->>>>>>> ba44b4aecae034e218ff16b7fea508545c9a38a5
->>>>>>> 7cb230ba409367f91467456621943f077430b953
             for pair in set_res:
                 file = 'amino_acid_dir_means_'+ condition + '/set' + \
                         str(pair[0]) +\
@@ -494,11 +392,7 @@ rule make_raw_matrix:
                 file_df['middle'] = file_df.Translation.str[1]
                 file_df.set_index('middle', inplace = True)
                 matrix[str(pair[1])] = file_df['mean']
-<<<<<<< HEAD
                 matrix_std[str(pair[1])] = file_df['std']/np.sqrt(file_df['len']-1)
-=======
-<<<<<<< HEAD
-                matrix_std[str(pair[1])] = file_df['std']/np.sqrt(file_df['len'])
             matrix = matrix[cols]
             matrix_std = matrix_std[cols]
             matrix.to_csv('raw_value_matrices/' + condition + '.csv')
@@ -524,50 +418,6 @@ rule wt_stop_transform:
         Path('wt_STOP_matrices').mkdir(parents=True, exist_ok=True)
         Path('stdem_wt_STOP').mkdir(parents=True, exist_ok=True)
         for cond in ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']:
-            norm_val, norm_std = sf.transform_matrix(spreadsheet, 'raw_value_matrices/'+ \
-                    cond +'.csv', 'raw_value_matrices_stdem/' + cond + '.csv')
-            norm_val.to_csv('wt_STOP_matrices/' + cond + '.csv')
-            norm_std.to_csv('stdem_wt_STOP/' + cond + '.csv')
-
-rule pval_nosyn:
-    input:
-        expand('amino_acid_nosyn_{conditions}/set{properties}.csv',\
-                conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
-                properties  = sf.properties(spreadsheet))
-    log:
-        notebook="logs/notebooks/processed_p_values_nosyn.py.ipynb"
-    output:
-        "logs/notebooks/processed_p_values_nosyn.py.ipynb"
-    notebook:
-        'p_values_nosyn.py.ipynb'
-=======
->>>>>>> 7cb230ba409367f91467456621943f077430b953
-            matrix = matrix[cols]
-            matrix_std = matrix_std[cols]
-            matrix.to_csv('raw_value_matrices/' + condition + '.csv')
-            matrix_std.to_csv('raw_value_matrices_stdem/' + condition + '.csv')
-
-rule wt_stop_transform:
-    '''
-    Normalize to STOP codon and WT of the set.
-    Construct std matrix nroamlized by same factor as normalization of activity.
-    '''
-    input:
-        expand('raw_value_matrices_stdem/{conditions}.csv',
-            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']),
-        expand('raw_value_matrices/{conditions}.csv',
-            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
-    output:
-        expand('wt_STOP_matrices/{conditions}.csv',
-            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']),
-        expand('stdem_wt_STOP/{conditions}.csv',
-            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
-
-    run:
-        Path('wt_STOP_matrices').mkdir(parents=True, exist_ok=True)
-        Path('stdem_wt_STOP').mkdir(parents=True, exist_ok=True)
-        for cond in ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']:
-<<<<<<< HEAD
             norm_val, norm_std = sf.transform_matrix(spreadsheet, 'raw_value_matrices/'+ \
                     cond +'.csv', 'raw_value_matrices_stdem/' + cond + '.csv')
             norm_val.to_csv('wt_STOP_matrices/' + cond + '.csv')
@@ -593,9 +443,3 @@ rule pval_nosyn:
 #     ouput:
 #         "logs/notebooks/"
 #     notebook:
-=======
-            normalized = sf.transform_matrix(spreadsheet, 'raw_value_matrices/'+ \
-                    cond +'.csv')
-            normalized.to_csv('wt_STOP_matrices/' + cond + '.csv')
->>>>>>> ba44b4aecae034e218ff16b7fea508545c9a38a5
->>>>>>> 7cb230ba409367f91467456621943f077430b953
