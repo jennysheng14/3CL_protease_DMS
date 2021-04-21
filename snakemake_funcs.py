@@ -34,7 +34,7 @@ amino_acid_list = ['*', 'A', 'C', 'D', 'E', 'F', 'G', 'H',
                    'S', 'T', 'V', 'W', 'Y']
 amino_acid_list.reverse()
 COMPARISONS = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']
-spreadsheet = "sample_spreadsheet_021521.csv"
+spreadsheet = "sample_spreadsheet_042021.csv"
 samples = pd.read_csv(spreadsheet, comment = '#')
 sets = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18, \
        19,20,21,'R1', '8R', '13R1', '14R', '13R2', '16R',\
@@ -171,10 +171,12 @@ def sets_and_residues(spreadsheet):
                     res.append(str(site))
     return(list(zip(set_, res)))
 
-def transform_matrix(spreadsheet, raw_matrix):
+def transform_matrix(spreadsheet, raw_matrix, std_matrix):
     '''
     Transform each set so that WT fixed at 0 and stop codon is normalized to
     -1 in each set.
+
+    Also transform the raw standard deviations by the same transformation
     __________
     Input:
     raw_matrix: matrix of untransformed values
@@ -182,17 +184,20 @@ def transform_matrix(spreadsheet, raw_matrix):
     set21: set21--treated separately because of the C terminus
     '''
     raw_matrix = pd.read_csv(raw_matrix, index_col = 0)
+    std_matrix = pd.read_csv(std_matrix, index_col = 0)
     set_res = sets_and_residues(spreadsheet)
     set_res = pd.DataFrame(set_res, columns = ['set', 'residue'])
     sets = list(set(pd.DataFrame(set_res, columns = ['set', 'residue'])['set']))
     mean_stop = {}
     len_set = {}
     set_list = []
+    std_list = []
     for set_ in sets:
         residues = [str(x) for x in list(set_res[set_res['set']==\
                 set_]['residue'])]
         if set_ != '21':
             fchange = raw_matrix[residues]
+            fchange_std = std_matrix[residues]
             wt_subseq = [wt_full[int(i)] for i in residues] #find WT residues for the set
             flat_list = np.array([item for sublist in fchange.values\
                 for item in sublist])
@@ -210,9 +215,12 @@ def transform_matrix(spreadsheet, raw_matrix):
             stop_mean = np.mean(fchange.loc['*'])
             scale_factor = -1/stop_mean
             fchange_norm = fchange*scale_factor
+            norm_std = abs(fchange_std*scale_factor)
             set_list.append(fchange_norm)
+            std_list.append(norm_std)
         elif set_ == '21':
             fchange = raw_matrix[residues]
+            fchange_std = std_matrix[residues]
             wt_subseq = [wt_full[int(i)] for i in residues]
             cols = fchange.columns[:2]
             wt_vals = []
@@ -226,13 +234,19 @@ def transform_matrix(spreadsheet, raw_matrix):
             stop_mean = np.mean(fchange.loc['*'][:2])
             scale_factor = -1/stop_mean
             fchange_norm = (fchange - wt_mean)*scale_factor
+            norm_std = abs(fchange_std*scale_factor)
+            std_list.append(norm_std)
             set_list.append(fchange_norm)
     all_residues = pd.concat(set_list, axis = 1)
+    all_std = pd.concat(std_list, axis = 1)
     order = [str(x) for x in range(1, 307)]
     all_residues = all_residues[order]
+    all_std = all_std[order]
     all_residues = all_residues.applymap(lambda x: x if not \
         isinstance(x, str) else np.nan)
-    return(all_residues)
+    all_std = all_std.applymap(lambda x: x if not \
+        isinstance(x, str) else np.nan)
+    return(all_residues, all_std)
 
 def sum_counts_nosyn(file, wt_site):
     '''
@@ -269,3 +283,9 @@ def amino_acid_nosyn(df1, df2):
     merged['len'] = merged['all_ratios'].apply(lambda x: len(x))
     merged['mean'] = merged['all_ratios'].apply(lambda x: np.mean(x))
     return merged
+
+# amalgamate_count_matrix():
+#     '''
+#     Amalgamates all of the individual count_matrices into a single one
+#     for feeding into deseq2.
+#     '''

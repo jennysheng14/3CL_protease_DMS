@@ -270,7 +270,7 @@ def heatmap_rsa_vert(
     fig.add_trace(go.Heatmap(
             z = df,
             x = df.columns,
-            y = [int(x[4:]) for x in list(df.index)],
+            y = [x for x in list(df.index)],
             colorscale='RdBu', zmid=0,
             zmin = -3),
             row = 1, col = 4)
