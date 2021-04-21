@@ -51,7 +51,7 @@ def original_dist(
                     start=min(flat_list),
                     end=max(flat_list),
                     size=0.25
-                ),), row=pos[0], col=pos[1])
+                ),text = str(x)), row=pos[0], col=pos[1])
 
         # new replicates single residues
         elif x in res_redo:
@@ -70,7 +70,7 @@ def original_dist(
                     start=min(flat_list),
                     end=max(flat_list),
                     size=0.25
-                ),), row=pos[0], col=pos[1])
+                ),text = str(x)), row=pos[0], col=pos[1], )
 
     fig.update_layout(height=700, width=900,
                       title_text=kwarg['title'])
@@ -171,7 +171,7 @@ def transform_dist(
                     start=min(flat_list),
                     end=max(flat_list),
                     size=0.25
-                ),), row=pos[0], col=pos[1])
+                ),text = str(x)), row=pos[0], col=pos[1], )
 
         elif x in set21:
             fchange = pd.read_csv(list(samples[samples['Set']==\
@@ -210,7 +210,7 @@ def transform_dist(
                     start=min(flat_list),
                     end=max(flat_list),
                     size=0.25
-                ),), row=pos[0], col=pos[1])
+                ),text = str(x)), row=pos[0], col=pos[1], )
 
         else: # for all individually repeated residues
             set_ind = x.find('R') #identify the R notation for the repeated set
@@ -248,7 +248,7 @@ def transform_dist(
                     start=min(flat_list),
                     end=max(flat_list),
                     size=0.25
-                ),), row=pos[0], col=pos[1])
+                ),text = str(x)), row=pos[0], col=pos[1])
 
     fig.update_layout(height=700, width=900,
                       title_text=kwarg['title'])

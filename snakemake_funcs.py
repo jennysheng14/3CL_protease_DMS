@@ -171,12 +171,28 @@ def sets_and_residues(spreadsheet):
                     res.append(str(site))
     return(list(zip(set_, res)))
 
+<<<<<<< HEAD
 def transform_matrix(spreadsheet, raw_matrix, std_matrix):
     '''
     Transform each set so that WT fixed at 0 and stop codon is normalized to
     -1 in each set.
 
     Also transform the raw standard deviations by the same transformation
+=======
+<<<<<<< HEAD
+def transform_matrix(spreadsheet, raw_matrix, std_matrix):
+    '''
+    Transform each set so that WT fixed at 0 and stop codon is normalized to
+    -1 in each set.
+
+    Also transform the raw standard deviations by the same transformation
+=======
+def transform_matrix(spreadsheet, raw_matrix):
+    '''
+    Transform each set so that WT fixed at 0 and stop codon is normalized to
+    -1 in each set.
+>>>>>>> ba44b4aecae034e218ff16b7fea508545c9a38a5
+>>>>>>> 7cb230ba409367f91467456621943f077430b953
     __________
     Input:
     raw_matrix: matrix of untransformed values
@@ -184,20 +200,41 @@ def transform_matrix(spreadsheet, raw_matrix, std_matrix):
     set21: set21--treated separately because of the C terminus
     '''
     raw_matrix = pd.read_csv(raw_matrix, index_col = 0)
+<<<<<<< HEAD
     std_matrix = pd.read_csv(std_matrix, index_col = 0)
+=======
+<<<<<<< HEAD
+    std_matrix = pd.read_csv(std_matrix, index_col = 0)
+=======
+>>>>>>> ba44b4aecae034e218ff16b7fea508545c9a38a5
+>>>>>>> 7cb230ba409367f91467456621943f077430b953
     set_res = sets_and_residues(spreadsheet)
     set_res = pd.DataFrame(set_res, columns = ['set', 'residue'])
     sets = list(set(pd.DataFrame(set_res, columns = ['set', 'residue'])['set']))
     mean_stop = {}
     len_set = {}
     set_list = []
+<<<<<<< HEAD
     std_list = []
+=======
+<<<<<<< HEAD
+    std_list = []
+=======
+>>>>>>> ba44b4aecae034e218ff16b7fea508545c9a38a5
+>>>>>>> 7cb230ba409367f91467456621943f077430b953
     for set_ in sets:
         residues = [str(x) for x in list(set_res[set_res['set']==\
                 set_]['residue'])]
         if set_ != '21':
             fchange = raw_matrix[residues]
+<<<<<<< HEAD
             fchange_std = std_matrix[residues]
+=======
+<<<<<<< HEAD
+            fchange_std = std_matrix[residues]
+=======
+>>>>>>> ba44b4aecae034e218ff16b7fea508545c9a38a5
+>>>>>>> 7cb230ba409367f91467456621943f077430b953
             wt_subseq = [wt_full[int(i)] for i in residues] #find WT residues for the set
             flat_list = np.array([item for sublist in fchange.values\
                 for item in sublist])
@@ -215,12 +252,24 @@ def transform_matrix(spreadsheet, raw_matrix, std_matrix):
             stop_mean = np.mean(fchange.loc['*'])
             scale_factor = -1/stop_mean
             fchange_norm = fchange*scale_factor
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 7cb230ba409367f91467456621943f077430b953
             norm_std = abs(fchange_std*scale_factor)
             set_list.append(fchange_norm)
             std_list.append(norm_std)
         elif set_ == '21':
             fchange = raw_matrix[residues]
             fchange_std = std_matrix[residues]
+<<<<<<< HEAD
+=======
+=======
+            set_list.append(fchange_norm)
+        elif set_ == '21':
+            fchange = raw_matrix[residues]
+>>>>>>> ba44b4aecae034e218ff16b7fea508545c9a38a5
+>>>>>>> 7cb230ba409367f91467456621943f077430b953
             wt_subseq = [wt_full[int(i)] for i in residues]
             cols = fchange.columns[:2]
             wt_vals = []
@@ -234,6 +283,11 @@ def transform_matrix(spreadsheet, raw_matrix, std_matrix):
             stop_mean = np.mean(fchange.loc['*'][:2])
             scale_factor = -1/stop_mean
             fchange_norm = (fchange - wt_mean)*scale_factor
+<<<<<<< HEAD
+            norm_std = abs(fchange_std*scale_factor)
+            std_list.append(norm_std)
+=======
+<<<<<<< HEAD
             norm_std = abs(fchange_std*scale_factor)
             std_list.append(norm_std)
             set_list.append(fchange_norm)
@@ -247,6 +301,24 @@ def transform_matrix(spreadsheet, raw_matrix, std_matrix):
     all_std = all_std.applymap(lambda x: x if not \
         isinstance(x, str) else np.nan)
     return(all_residues, all_std)
+=======
+>>>>>>> 7cb230ba409367f91467456621943f077430b953
+            set_list.append(fchange_norm)
+    all_residues = pd.concat(set_list, axis = 1)
+    all_std = pd.concat(std_list, axis = 1)
+    order = [str(x) for x in range(1, 307)]
+    all_residues = all_residues[order]
+    all_std = all_std[order]
+    all_residues = all_residues.applymap(lambda x: x if not \
+        isinstance(x, str) else np.nan)
+<<<<<<< HEAD
+    all_std = all_std.applymap(lambda x: x if not \
+        isinstance(x, str) else np.nan)
+    return(all_residues, all_std)
+=======
+    return(all_residues)
+>>>>>>> ba44b4aecae034e218ff16b7fea508545c9a38a5
+>>>>>>> 7cb230ba409367f91467456621943f077430b953
 
 def sum_counts_nosyn(file, wt_site):
     '''
@@ -283,9 +355,18 @@ def amino_acid_nosyn(df1, df2):
     merged['len'] = merged['all_ratios'].apply(lambda x: len(x))
     merged['mean'] = merged['all_ratios'].apply(lambda x: np.mean(x))
     return merged
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> 7cb230ba409367f91467456621943f077430b953
 
 # amalgamate_count_matrix():
 #     '''
 #     Amalgamates all of the individual count_matrices into a single one
 #     for feeding into deseq2.
 #     '''
+<<<<<<< HEAD
+=======
+=======
+>>>>>>> ba44b4aecae034e218ff16b7fea508545c9a38a5
+>>>>>>> 7cb230ba409367f91467456621943f077430b953
