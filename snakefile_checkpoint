@@ -435,11 +435,3 @@ rule pval_nosyn:
         "logs/notebooks/processed_p_values_nosyn.py.ipynb"
     notebook:
         'scripts/p_values_nosyn.py.ipynb'
-
-# rule make_figs:
-#     input:
-#         expand('wt_STOP_matrices/{conditions}.csv',
-#             conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
-#     ouput:
-#         "logs/notebooks/"
-#     notebook:
