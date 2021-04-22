@@ -282,6 +282,7 @@ def amino_acid_nosyn(df1, df2):
     merged['all_ratios'] = merged['ratio_x']+ merged['ratio_y']
     merged['len'] = merged['all_ratios'].apply(lambda x: len(x))
     merged['mean'] = merged['all_ratios'].apply(lambda x: np.mean(x))
+    merged['std'] = merged['all_ratios'].apply(lambda x: np.std(x))
     return merged
 
 # amalgamate_count_matrix():
