@@ -54,12 +54,16 @@ rule all:
             conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']),
         expand('stdem_wt_STOP/{conditions}.csv',
             conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']),
+        expand('len_variants/{conditions}.csv',
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']),
         # not considering synonymous mutations
         expand('wt_STOP_matrices_nosyn/{conditions}.csv',
             conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']),
         expand('std_wt_STOP_nosyn/{conditions}.csv',
             conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']),
         expand('stdem_wt_STOP_nosyn/{conditions}.csv',
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']),
+        expand('len_variants_nosyn/{conditions}.csv',
             conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
 
 rule count_matrix:
@@ -384,6 +388,8 @@ rule make_raw_matrix_nosyn:
         expand('raw_value_matrices_std_nosyn/{conditions}.csv',
             conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']),
         expand('raw_value_matrices_stdem_nosyn/{conditions}.csv',
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']),
+        expand('len_variants_nosyn/{conditions}.csv',
             conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
     run:
         cols = [str(x) for x in range(1, 307)]
@@ -392,6 +398,7 @@ rule make_raw_matrix_nosyn:
             matrix = pd.DataFrame(index = amino_acid_list)
             matrix_std = pd.DataFrame(index = amino_acid_list)
             matrix_stdem = pd.DataFrame(index = amino_acid_list)
+            len_var = pd.DataFrame(index = amino_acid_list)
             for pair in set_res:
                 file = 'amino_acid_nosyn_'+ condition + '/set' + \
                         str(pair[0]) +\
@@ -401,12 +408,14 @@ rule make_raw_matrix_nosyn:
                 file_df.set_index('middle', inplace = True)
                 matrix[str(pair[1])] = file_df['mean']
                 matrix_std[str(pair[1])] = file_df['std']
+                len_var[str(pair[1])] = file_df['len']
                 matrix_stdem[str(pair[1])] = file_df['std']/np.sqrt(file_df['len']-1)
             matrix = matrix[cols]
             matrix_std = matrix_std[cols]
             matrix.to_csv('raw_value_matrices_nosyn/' + condition + '.csv')
             matrix_std.to_csv('raw_value_matrices_std_nosyn/' + condition + '.csv')
             matrix_stdem.to_csv('raw_value_matrices_stdem_nosyn/' + condition + '.csv')
+            len_var.to_csv('len_variants_nosyn/' + condition + '.csv')
 
 rule make_raw_matrix:
     '''
@@ -422,14 +431,18 @@ rule make_raw_matrix:
         expand('raw_value_matrices_std/{conditions}.csv',
             conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']),
         expand('raw_value_matrices_stdem/{conditions}.csv',
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']),
+        expand('len_variants/{conditions}.csv',
             conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
     run:
         cols = [str(x) for x in range(1, 307)]
         set_res = sf.sets_and_residues(spreadsheet)
         Path('raw_value_matrices').mkdir(parents=True, exist_ok=True)
+        Path('len_variants').mkdir(parents=True, exist_ok=True)
         Path('raw_value_matrices_stdem').mkdir(parents=True, exist_ok=True)
         Path('raw_value_matrices_std').mkdir(parents=True, exist_ok=True)
         for condition in ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']:
+            len_var = pd.DataFrame(index = amino_acid_list)
             matrix = pd.DataFrame(index = amino_acid_list)
             matrix_std = pd.DataFrame(index = amino_acid_list)
             matrix_stdem = pd.DataFrame(index = amino_acid_list)
@@ -442,12 +455,14 @@ rule make_raw_matrix:
                 file_df.set_index('middle', inplace = True)
                 matrix[str(pair[1])] = file_df['mean']
                 matrix_std[str(pair[1])] = file_df['std']
+                len_var[str(pair[1])] = file_df['len']
                 matrix_stdem[str(pair[1])] = file_df['std']/np.sqrt(file_df['len']-1)
             matrix = matrix[cols]
             matrix_std = matrix_std[cols]
             matrix.to_csv('raw_value_matrices/' + condition + '.csv')
             matrix_std.to_csv('raw_value_matrices_std/' + condition + '.csv')
             matrix_stdem.to_csv('raw_value_matrices_stdem/' + condition + '.csv')
+            len_var.to_csv('len_variants/' + condition + '.csv')
 
 rule wt_stop_transform:
     '''
