@@ -171,7 +171,7 @@ def sets_and_residues(spreadsheet):
                     res.append(str(site))
     return(list(zip(set_, res)))
 
-def transform_matrix(spreadsheet, raw_matrix, std_matrix):
+def transform_matrix(spreadsheet, raw_matrix, std_matrix, stdem_matrix):
     '''
     Transform each set so that WT fixed at 0 and stop codon is normalized to
     -1 in each set.
@@ -185,6 +185,7 @@ def transform_matrix(spreadsheet, raw_matrix, std_matrix):
     '''
     raw_matrix = pd.read_csv(raw_matrix, index_col = 0)
     std_matrix = pd.read_csv(std_matrix, index_col = 0)
+    stdem_matrix = pd.read_csv(stdem_matrix, index_col = 0)
     set_res = sets_and_residues(spreadsheet)
     set_res = pd.DataFrame(set_res, columns = ['set', 'residue'])
     sets = list(set(pd.DataFrame(set_res, columns = ['set', 'residue'])['set']))
@@ -192,12 +193,14 @@ def transform_matrix(spreadsheet, raw_matrix, std_matrix):
     len_set = {}
     set_list = []
     std_list = []
+    stdem_list = []
     for set_ in sets:
         residues = [str(x) for x in list(set_res[set_res['set']==\
                 set_]['residue'])]
         if set_ != '21':
             fchange = raw_matrix[residues]
             fchange_std = std_matrix[residues]
+            fchange_stdem = stdem_matrix[residues]
             wt_subseq = [wt_full[int(i)] for i in residues] #find WT residues for the set
             flat_list = np.array([item for sublist in fchange.values\
                 for item in sublist])
@@ -216,11 +219,14 @@ def transform_matrix(spreadsheet, raw_matrix, std_matrix):
             scale_factor = -1/stop_mean
             fchange_norm = fchange*scale_factor
             norm_std = abs(fchange_std*scale_factor)
+            norm_stdem = abs(fchange_stdem*scale_factor)
             set_list.append(fchange_norm)
             std_list.append(norm_std)
+            stdem_list.append(norm_stdem)
         elif set_ == '21':
             fchange = raw_matrix[residues]
             fchange_std = std_matrix[residues]
+            fchange_stdem = stdem_matrix[residues]
             wt_subseq = [wt_full[int(i)] for i in residues]
             cols = fchange.columns[:2]
             wt_vals = []
@@ -235,18 +241,24 @@ def transform_matrix(spreadsheet, raw_matrix, std_matrix):
             scale_factor = -1/stop_mean
             fchange_norm = (fchange - wt_mean)*scale_factor
             norm_std = abs(fchange_std*scale_factor)
-            std_list.append(norm_std)
+            norm_stdem = abs(fchange_stdem*scale_factor)
             set_list.append(fchange_norm)
+            std_list.append(norm_std)
+            stdem_list.append(norm_stdem)
     all_residues = pd.concat(set_list, axis = 1)
     all_std = pd.concat(std_list, axis = 1)
+    all_stdem = pd.concat(stdem_list, axis = 1)
     order = [str(x) for x in range(1, 307)]
     all_residues = all_residues[order]
     all_std = all_std[order]
+    all_stdem = all_stdem[order]
     all_residues = all_residues.applymap(lambda x: x if not \
         isinstance(x, str) else np.nan)
     all_std = all_std.applymap(lambda x: x if not \
         isinstance(x, str) else np.nan)
-    return(all_residues, all_std)
+    all_stdem = all_stdem.applymap(lambda x: x if not \
+        isinstance(x, str) else np.nan)
+    return(all_residues, all_std, all_stdem)
 
 def sum_counts_nosyn(file, wt_site):
     '''
