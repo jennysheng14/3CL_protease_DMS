@@ -1,0 +1,3 @@
+,site_1,site_2,site_3,count_x_x,proportion_x_x,count_y_x,proportion_y_x,ratio_x,count_x_y,proportion_x_y,count_y_y,proportion_y_y,ratio_y,mean,std
+ACGGATACA,ACG,GAT,ACA,209,0.00024485597431,148,0.0002237725019882,0.1299006338190942,,,,,,0.1299006338190942,
+ACGGACACA,ACG,GAC,ACA,853563,1.0,661386,1.0,0.0,464730.0,1.0,870709.0,1.0,0.0,0.0,0.0
