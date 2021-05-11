@@ -80,6 +80,14 @@ class mutations:
                 N_list.append(dna_codings)
         return(N_list)
 
+    def read_lengths(self, file, sequence, seq_position):
+        '''
+        Ensure all the reads are the correct length. This is important
+        for correctly calling the wt variants.
+        '''
+        N_lst = self.read_file_set(file, sequence, seq_position)
+        lengths = [len(''.join(x)) for x in N_lst]
+        return(lengths)
 
     def wildtype(self):
         '''

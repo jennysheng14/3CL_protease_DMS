@@ -223,6 +223,7 @@ rule comp_nosyn:
                 conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
                 properties  = sf.properties(spreadsheet))
     run:
+        thresh_dict = {'Glu': 100, 'Gal': 30, 'Gc': 30, 'Grl': 30}
         sample = pd.read_csv(spreadsheet, comment = '#')
         for comparison in [['Glu', 'Gal'], ['Glu', 'Gc'], ['Glu', 'Grl'],
                            ['Gal', 'Gc'], ['Gal', 'Grl']]:
@@ -246,6 +247,10 @@ rule comp_nosyn:
                     cond2_norm['proportion'] = cond2_dfs['count']/\
                         cond2_dfs['count'].loc[wt]
                     merged = cond1_norm.merge(cond2_norm, on = 'site_2')
+                    merged = merged[\
+                            (merged['count_x'] > thresh_dict[comparison[0]])&\
+                            (merged['count_y'] > thresh_dict[comparison[1]])\
+                            ]
                         # take ratio between conditions
                     merged['ratio'] = merged['proportion_x'].apply(lambda \
                             x: np.log2(x))-\

@@ -1,0 +1,86 @@
+import pandas as pd
+import function_bio_rep
+import replicates_no_syn
+from Bio.Seq import Seq
+import numpy as np
+from pathlib import Path
+import glob
+import re
+import snakemake_funcs as sf
+# from snakemake.remote.GS import RemoteProvider as GSRemoteProvider
+# GS = GSRemoteProvider()
+
+seq_3CL = ("TACAAAATG"
+"TACAAAATGAGTGGTTTTAGAAAAATGGCATTCCCATCTGGTAAAGTTGAGGGTTGTATGGT"
+"ACAAGTAACTTGTGGTACAACTACACTTAACGGTCTTTGGCTTGATGACGTAGTTTACTGTCCAAGACATGT"
+"GATCTGCACCTCTGAAGACATGCTTAACCCTAATTATGAAGATTTACTCATTCGTAAGTCTAATCATAATTTC"
+"TTGGTACAGGCTGGTAATGTTCAACTCAGGGTTATTGGACATTCTATGCAAAATTGTGTACTTAAGCTTAAGG"
+"TTGATACAGCCAATCCTAAGACACCTAAGTATAAGTTTGTTCGCATTCAACCAGGACAGACTTTTTCAGTGT"
+"TAGCTTGTTACAATGGTTCACCATCTGGTGTTTACCAATGTGCTATGAGGCCCAATTTCACTATTAAGGGTTC"
+"ATTCCTTAATGGTTCATGTGGTAGTGTTGGTTTTAACATAGATTATGACTGTGTCTCTTTTTGTTACATGCAC"
+"CATATGGAATTACCAACTGGAGTTCATGCTGGCACAGACTTAGAAGGTAACTTTTATGGACCTTTTGTTGACA"
+"GGCAAACAGCACAAGCAGCTGGTACGGACACAACTATTACAGTTAATGTTTTAGCTTGGTTGTACGCTGCTGT"
+"TATAAATGGAGACAGGTGGTTTCTCAATCGATTTACCACAACTCTTAATGACTTTAACCTTGTGGCTATGAAGT"
+"ACAATTATGAACCTCTAACACAAGACCATGTTGACATACTAGGACCTCTTTCTGCTCAAACTGGAATTGCCGT"
+"TTTAGATATGTGTGCTTCATTAAAAGAATTACTGCAAAATGGTATGAATGGACGTACCATATTGGGTAGTGCTT"
+"TATTAGAAGATGAATTTACACCTTTTGATGTTGTTAGACAATGCTCAGGTGTTACTTTCCAATAA")
+wt_full = ('MSGFRKMAFPSGKVEGCMVQVTCGTTTLNGLWLDDVVYCPRHVICT'
+           'SEDMLNPNYEDLLIRKSNHNFLVQAGNVQLRVIGHSMQNCVLKLKV'
+           'DTANPKTPKYKFVRIQPGQTFSVLACYNGSPSGVYQCAMRPNFTIK'
+           'GSFLNGSCGSVGFNIDYDCVSFCYMHHMELPTGVHAGTDLEGNFYG'
+           'PFVDRQTAQAAGTDTTITVNVLAWLYAAVINGDRWFLNRFTTTLND'
+           'FNLVAMKYNYEPLTQDHVDILGPLSAQTGIAVLDMCASLKELLQNG'
+           'MNGRTILGSALLEDEFTPFDVVRQCSGVTFQ')
+
+amino_acid_list = ['*', 'A', 'C', 'D', 'E', 'F', 'G', 'H',
+                   'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R',
+                   'S', 'T', 'V', 'W', 'Y']
+amino_acid_list.reverse()
+COMPARISONS = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']
+spreadsheet = "sample_spreadsheet_042021.csv"
+samples = pd.read_csv(spreadsheet, comment = '#')
+sets = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18, \
+       19,20,21,'R1', '8R', '13R1', '14R', '13R2', '16R',\
+       '9R1','9R2', '10R1', '10R2']
+sets = set(list(samples['Set']))
+
+rule all:
+    input:
+        expand('{condition}_read_length/set{s}_rep{rep}.csv',
+                condition = ['Glu', 'Gal', 'Gc', 'Grl'],
+                s = [str(x) for x in sets],
+                rep = [0, 1])
+
+rule count_matrix:
+    input:
+        fastq_files = sf.get_fastq_files(spreadsheet)
+    output:
+        expand('{condition}_read_length/set{s}_rep{rep}.csv',
+                condition = ['Glu', 'Gal', 'Gc', 'Grl'],
+                s = [str(x) for x in sets],
+                rep = [0, 1])
+    run:
+        sample = pd.read_csv(spreadsheet, comment = '#')
+        threshold = 1
+        for s in sets:
+            for condition in ['Glu', 'Gal', 'Gc', 'Grl']:
+                x = str(s)
+                start = list(sample[sample['Set'] == x]['Start range'])[0]
+                end = list(sample[sample['Set'] == x]['End range'])[0]
+                # test to see if I can directly get this data from google bucket
+                # files = 'jenny_yeast/'+ list(sample[sample['Set'] == x]['Folder'] + \
+                #     sample[sample['Set'] == x][condition] + '_R1.fastq.gz')
+                files = list(sample[sample['Set'] == x]['Folder'] + \
+                        sample[sample['Set'] == x][condition] + '_R1.fastq.gz')
+                sequence = list(sample[sample['Set'] == x]['Sequence'])[0]
+                position = list(sample[sample['Set'] == x]['Position'])[0]
+                sites = function_bio_rep.mutations(list(range(start, end)),\
+                        list(range(start, end)))
+                print(sites.sites, sites.all_muts, position, threshold, sequence)
+                for rep in [0, 1]:
+                    count_mat = sites.read_lengths(files[rep], \
+                                sequence, position)
+                    count_mat_df = pd.DataFrame(count_mat)
+                    name = condition+'_read_length/set'+ str(s)+'_rep'+\
+                            str(rep)+'.csv'
+                    count_mat_df.to_csv(name)

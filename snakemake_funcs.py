@@ -60,7 +60,7 @@ def get_fastq_files(sample_spreadsheet):
             fastq_files.append(files)
     return(fastq_files)
 
-def replicate_mean(rep1, rep2, thresh1, thresh2):
+def  (rep1, rep2, thresh1, thresh2):
     '''
     Return the mean value of coding between two biological replicates. If
     only a single replicate exists take that as the mean.
