@@ -64,7 +64,12 @@ rule all:
         expand('stdem_wt_STOP_nosyn/{conditions}.csv',
             conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']),
         expand('len_variants_nosyn/{conditions}.csv',
-            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']),
+        expand('wt_STOP_matrices_biorep/{conditions}{type}_rep{rep}.csv',
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+            type = ['_nosyn', ''],
+            rep = ['0', '1']),
+        "logs/notebooks/Correlations_notebook.py.ipynb"
 
 rule count_matrix:
     input:
@@ -350,7 +355,6 @@ rule amino_acid_nosyn:
                 name = 'amino_acid_nosyn_' + cond + '/set' + prop + '.csv'
                 aa_df.to_csv(name)
 
-
 rule amino_acid_means:
     input:
         expand('replicatedir_{conditions}/set{properties}.csv',
@@ -545,6 +549,218 @@ rule pval_nosyn:
     notebook:
         'scripts/p_values_syn_and_nosyn.py.ipynb'
 
+rule single_biorep:
+    '''
+    Create matrix for each separate biological replicate.
+    '''
+    input:
+        expand('comparisondir_{conditions}/set{properties}_rep{rep}.csv', \
+            rep = ['0', '1'],\
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+            properties  = sf.properties(spreadsheet))
+    output:
+        expand('single_biorep_{conditions}/set{properties}_rep{rep}.csv', \
+            rep = ['0', '1'],\
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+            properties  = sf.properties(spreadsheet))
+    run:
+        sample = pd.read_csv(spreadsheet, comment = '#')
+        thresh_dict = {'Glu': 100, 'Gal': 30, 'Grl': 30, 'Gc': 30}
+        for comparison in [['Glu', 'Gal'], ['Glu', 'Gc'], ['Glu', 'Grl'],
+                           ['Gal', 'Gc'], ['Gal', 'Grl']]:
+            Path('comparisondir_' + comparison[0] + '_' + \
+                    comparison[1]).mkdir(parents=True, exist_ok=True)
+            for s in sets:
+                x = str(s)
+                start = list(sample[sample['Set'] == x]['Start range'])[0]
+                end = list(sample[sample['Set'] == x]['End range'])[0]
+                for ind in range(start, end):
+                    site = function_bio_rep.mutations(list(range(ind, ind+1)), \
+                            list(range(ind, ind+1)))
+                    wt = site.wildtype()
+                    file1 = 'comparisondir_'+comparison[0]+'_'+\
+                            comparison[1]+'/set'+ x +\
+                            '_residue'+str(ind)+'_rep0.csv'
+                    file2 = 'comparisondir_'+comparison[0]+'_'+\
+                            comparison[1]+'/set'+ x +\
+                            '_residue'+str(ind)+'_rep1.csv'
+                    replicate1 = sf.single_replicate_score(file1, \
+                        thresh_dict[comparison[0]], wt[0])
+                    replicate2 = sf.single_replicate_score(file2, \
+                        thresh_dict[comparison[1]], wt[0])
+                    name1 = 'single_biorep_'+comparison[0] + '_' + comparison[1]\
+                            +'/set' +\
+                            str(x)+'_residue'+str(ind)+'_rep0.csv'
+                    name2 = 'single_biorep_'+comparison[0] + '_' + comparison[1]\
+                            +'/set' +\
+                            str(x)+'_residue'+str(ind)+'_rep1.csv'
+                    replicate1.to_csv(name1)
+                    replicate2.to_csv(name2)
+
+rule single_biorep_nosyn:
+    '''
+    Create matrix for each separate biological replicate.
+    '''
+    input:
+        expand('comparisondir_nosyn_{conditions}/set{properties}_rep{rep}.csv',\
+            rep = ['0', '1'],\
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+            properties  = sf.properties(spreadsheet))
+    output:
+        expand('single_biorep_nosyn_{conditions}/set{properties}_rep{rep}.csv',\
+            rep = ['0', '1'],\
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+            properties  = sf.properties(spreadsheet))
+    run:
+        sample = pd.read_csv(spreadsheet, comment = '#')
+        thresh_dict = {'Glu': 100, 'Gal': 30, 'Grl': 30, 'Gc': 30}
+        for comparison in [['Glu', 'Gal'], ['Glu', 'Gc'], ['Glu', 'Grl'],
+                           ['Gal', 'Gc'], ['Gal', 'Grl']]:
+            Path('comparisondir_' + comparison[0] + '_' + \
+                    comparison[1]).mkdir(parents=True, exist_ok=True)
+            for s in sets:
+                x = str(s)
+                start = list(sample[sample['Set'] == x]['Start range'])[0]
+                end = list(sample[sample['Set'] == x]['End range'])[0]
+                for ind in range(start, end):
+                    site = function_bio_rep.mutations(list(range(ind, ind+1)), \
+                            list(range(ind, ind+1)))
+                    wt = site.wildtype()
+                    file1 = 'comparisondir_nosyn_'+comparison[0]+'_'+\
+                            comparison[1]+'/set'+ x +\
+                            '_residue'+str(ind)+'_rep0.csv'
+                    file2 = 'comparisondir_nosyn_'+comparison[0]+'_'+\
+                            comparison[1]+'/set'+ x +\
+                            '_residue'+str(ind)+'_rep1.csv'
+                    replicate1 = sf.single_replicate_score_nosyn(file1, \
+                        thresh_dict[comparison[0]], wt[0])
+                    replicate2 = sf.single_replicate_score_nosyn(file2, \
+                        thresh_dict[comparison[1]], wt[0])
+                    name1 = 'single_biorep_nosyn_'+comparison[0] + '_' + comparison[1]\
+                            +'/set' +\
+                            str(x)+'_residue'+str(ind)+'_rep0.csv'
+                    name2 = 'single_biorep_nosyn_'+comparison[0] + '_' + comparison[1]\
+                            +'/set' +\
+                            str(x)+'_residue'+str(ind)+'_rep1.csv'
+                    replicate1.to_csv(name1)
+                    replicate2.to_csv(name2)
+
+rule single_biorep_raw_matrix:
+    '''
+    Raw foldchanges without normalizations for single biological replicates
+    (with synonymous codings).
+    '''
+    input:
+        expand('single_biorep_{conditions}/set{properties}_rep{rep}.csv', \
+            rep = ['0', '1'],\
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+            properties  = sf.properties(spreadsheet))
+    output:
+        expand('single_biorep_raw_matrices/{conditions}_rep{replicate}.csv',
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+            replicate = ['0', '1']),
+    run:
+        cols = [str(x) for x in range(1, 307)]
+        set_res = sf.sets_and_residues(spreadsheet)
+        Path('single_biorep_raw_matrices').mkdir(parents=True, exist_ok=True)
+        for condition in ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']:
+            for replicate in [0, 1]:
+                len_var = pd.DataFrame(index = amino_acid_list)
+                matrix = pd.DataFrame(index = amino_acid_list)
+                matrix_std = pd.DataFrame(index = amino_acid_list)
+                matrix_stdem = pd.DataFrame(index = amino_acid_list)
+                for pair in set_res:
+                        file = 'single_biorep_'+ condition + '/set' + \
+                                str(pair[0]) +\
+                                '_residue' + str(pair[1]) +\
+                                '_rep' + str(replicate)+\
+                                 '.csv'
+                        file_df = pd.read_csv(file, index_col = 0)
+                        matrix[str(pair[1])] = file_df['ratio']
+                matrix = matrix[cols]
+                matrix.to_csv('single_biorep_raw_matrices/' + condition +
+                        '_rep' + str(replicate) + '.csv')
+
+rule single_biorep_raw_matrix_nosyn:
+    '''
+    Raw foldchanges without normalizations for single biological replicates
+    (with synonymous codings).
+    '''
+    input:
+        expand('single_biorep_nosyn_{conditions}/set{properties}_rep{rep}.csv', \
+            rep = ['0', '1'],\
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+            properties  = sf.properties(spreadsheet))
+    output:
+        expand('single_biorep_raw_matrices_nosyn/{conditions}_rep{replicate}.csv',
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+            replicate = ['0', '1']),
+    run:
+        cols = [str(x) for x in range(1, 307)]
+        set_res = sf.sets_and_residues(spreadsheet)
+        Path('single_biorep_raw_matrices_nosyn').mkdir(parents=True, exist_ok=True)
+        for condition in ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']:
+            for replicate in [0, 1]:
+                len_var = pd.DataFrame(index = amino_acid_list)
+                matrix = pd.DataFrame(index = amino_acid_list)
+                matrix_std = pd.DataFrame(index = amino_acid_list)
+                matrix_stdem = pd.DataFrame(index = amino_acid_list)
+                for pair in set_res:
+                        file = 'single_biorep_nosyn_'+ condition + '/set' + \
+                                str(pair[0]) +\
+                                '_residue' + str(pair[1]) +\
+                                '_rep' + str(replicate)+\
+                                 '.csv'
+                        file_df = pd.read_csv(file, index_col = 0)
+                        matrix[str(pair[1])] = file_df['ratio']
+                matrix = matrix[cols]
+                matrix.to_csv('single_biorep_raw_matrices_nosyn/' + condition +
+                        '_rep' + str(replicate) + '.csv')
+
+rule wt_STOP_transform_biorep:
+    '''
+    Normalize to STOP codon and WT of the set.
+    Construct std matrix normalized by same factor as normalization of activity.
+    '''
+    input:
+        expand('single_biorep_raw_matrices_nosyn/{conditions}_rep{replicate}.csv',
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+            replicate = ['0', '1']),
+        expand('single_biorep_raw_matrices/{conditions}_rep{replicate}.csv',
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+            replicate = ['0', '1'])
+    output:
+        expand('wt_STOP_matrices_biorep/{conditions}{type}_rep{rep}.csv',
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+            type = ['_nosyn', ''],
+            rep = ['0', '1']),
+    run:
+        for cond in ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']:
+            for replicate in ['0', '1']:
+                for type in ['_nosyn', '']:
+                    norm_val =\
+                            sf.transform_matrix_biorep(spreadsheet,\
+                            'single_biorep_raw_matrices' + type + '/' + cond +'_rep'+\
+                                str(replicate)+'.csv')
+                    norm_val.to_csv('wt_STOP_matrices_biorep/' + cond + type+ '_rep'+\
+                        str(replicate)+ '.csv')
+
+rule correlation_figs:
+    input:
+        expand('wt_STOP_matrices_biorep/{conditions}{type}_rep{rep}.csv',
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'],
+            type = ['_nosyn', ''],
+            rep = ['0', '1']),
+        expand('wt_STOP_matrices_nosyn/{conditions}.csv',
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']),
+        expand('wt_STOP_matrices/{conditions}.csv',
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
+    log:
+        notebook="logs/notebooks/Correlations_notebook.py.ipynb"
+    output:
+        "logs/notebooks/Correlations_notebook.py.ipynb"
+    notebook:
+        'scripts/Correlations_notebook.py.ipynb'
 # rule make_figs:
 #     input:
 #         expand('wt_STOP_matrices/{conditions}.csv',

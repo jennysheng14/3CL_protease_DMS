@@ -60,7 +60,7 @@ def get_fastq_files(sample_spreadsheet):
             fastq_files.append(files)
     return(fastq_files)
 
-def  (rep1, rep2, thresh1, thresh2):
+def replicate_mean(rep1, rep2, thresh1, thresh2):
     '''
     Return the mean value of coding between two biological replicates. If
     only a single replicate exists take that as the mean.
@@ -79,6 +79,49 @@ def  (rep1, rep2, thresh1, thresh2):
     keep = ['N' not in x for x in merged.index]
     merged = merged[keep]
     return(merged)
+
+def single_replicate_score(cond, thresh, wt_site):
+    '''
+    Return the score amino acid score taken as the mean of different
+    synonymous codings.
+    '''
+    cond_df = pd.read_csv(cond, index_col = 0)
+    cond_df['combined'] = cond_df['site_1']+cond_df['site_2']+cond_df['site_3']
+    cond_df = cond_df.set_index('combined')
+    wt_first_aa = Seq(wt_site[0:3]).translate()[0]
+    wt_last_aa = Seq(wt_site[6:9]).translate()[0]
+    ind = list(cond_df.index)
+    ind = [x for x in ind if len(x)==9 and '\n' not in x]
+    ind.sort(key = lambda x:(x[3:6], x[0:3], x[6:9]))#sort display order
+    # keep only synonymous on flanking
+    keep_ind = [x for x in ind if Seq(x[0:3]).translate()[0]==\
+            wt_first_aa and Seq(x[6:9]).translate()[0]== wt_last_aa]
+    sorted_diff = cond_df.reindex(keep_ind)
+    codons = [str(Seq(x).translate())[1] for x in sorted_diff.index]
+    sorted_diff['Translation'] = codons
+    # Dataframe for amino acid data
+    g = sorted_diff.groupby('Translation')
+    aa_df = g.mean()['ratio'] #mean of all codings
+    # Propogate errors
+    # add in standard error of mean here in addn to propogated errors
+#         aa_df['std'] = g.apply(lambda x: np.sqrt(sum(x**2)))['std']
+    return(aa_df)
+
+def single_replicate_score_nosyn(cond, thresh, wt_site):
+    '''
+    Return the score amino acid score taken as the mean of different
+    synonymous codings.
+    '''
+    cond_df = pd.read_csv(cond, index_col = 0)
+    codons = [str(Seq(x).translate()) for x in cond_df.index]
+    cond_df['Translation'] = codons
+    # Dataframe for amino acid data
+    g = cond_df.groupby('Translation')
+    aa_df = g.mean()['ratio'] #mean of all codings
+    # Propogate errors
+    # add in standard error of mean here in addn to propogated errors
+#         aa_df['std'] = g.apply(lambda x: np.sqrt(sum(x**2)))['std']
+    return(aa_df)
 
 def amino_acids_vals(cond, wt_site):
     '''
@@ -297,6 +340,72 @@ def amino_acid_nosyn(df1, df2):
     merged['std'] = merged['all_ratios'].apply(lambda x: np.std(x))
     return merged
 
+def transform_matrix_biorep(spreadsheet, raw_matrix):
+    '''
+    Transform each set so that WT fixed at 0 and stop codon is normalized to
+    -1 in each set.
+
+    Also transform the raw standard deviations by the same transformation
+    __________
+    Input:
+    raw_matrix: matrix of untransformed values
+    spreadsheet: spreadsheet indexing sets and residues
+    set21: set21--treated separately because of the C terminus
+    '''
+    raw_matrix = pd.read_csv(raw_matrix, index_col = 0)
+    # std_matrix = pd.read_csv(std_matrix, index_col = 0)
+    # stdem_matrix = pd.read_csv(stdem_matrix, index_col = 0)
+    set_res = sets_and_residues(spreadsheet)
+    set_res = pd.DataFrame(set_res, columns = ['set', 'residue'])
+    sets = list(set(pd.DataFrame(set_res, columns = ['set', 'residue'])['set']))
+    mean_stop = {}
+    len_set = {}
+    set_list = []
+    for set_ in sets:
+        residues = [str(x) for x in list(set_res[set_res['set']==\
+                set_]['residue'])]
+        if set_ != '21':
+            fchange = raw_matrix[residues]
+            wt_subseq = [wt_full[int(i)] for i in residues] #find WT residues for the set
+            flat_list = np.array([item for sublist in fchange.values\
+                for item in sublist])
+            mean = flat_list[~np.isnan(flat_list)].mean() # mean of the set
+            var = flat_list[~np.isnan(flat_list)].var() # variance of the set
+
+            wt_vals = []
+            for row, col in zip(wt_subseq, residues):
+                wt_vals.append(fchange.loc[row, col])
+            wt_mean = np.mean(wt_vals)
+            fchange = fchange - wt_mean
+            mean_stop[str(set_)] = np.mean(fchange.loc['*'])
+            len_set[str(set_)] = len(fchange.columns)
+
+            stop_mean = np.mean(fchange.loc['*'])
+            scale_factor = -1/stop_mean
+            fchange_norm = fchange*scale_factor
+            set_list.append(fchange_norm)
+        elif set_ == '21':
+            fchange = raw_matrix[residues]
+            wt_subseq = [wt_full[int(i)] for i in residues]
+            cols = fchange.columns[:2]
+            wt_vals = []
+            for row, col in zip(wt_subseq, cols):
+                wt_vals.append(fchange.loc[row, col])
+            wt_mean = np.mean(wt_vals)
+            fchange = fchange - wt_mean
+            # add to dict for mean stop
+            mean_stop[str(set_)] = np.mean(fchange.loc['*'][:2])
+            len_set[str(set_)] = 2
+            stop_mean = np.mean(fchange.loc['*'][:2])
+            scale_factor = -1/stop_mean
+            fchange_norm = (fchange - wt_mean)*scale_factor
+            set_list.append(fchange_norm)
+    all_residues = pd.concat(set_list, axis = 1)
+    order = [str(x) for x in range(1, 307)]
+    all_residues = all_residues[order]
+    all_residues = all_residues.applymap(lambda x: x if not \
+        isinstance(x, str) else np.nan)
+    return(all_residues)
 # amalgamate_count_matrix():
 #     '''
 #     Amalgamates all of the individual count_matrices into a single one
