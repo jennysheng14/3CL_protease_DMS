@@ -756,11 +756,24 @@ rule correlation_figs:
         expand('wt_STOP_matrices/{conditions}.csv',
             conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
     log:
-        notebook="logs/notebooks/Correlations_notebook.py.ipynb"
+        notebook = "logs/notebooks/Correlations_notebook.py.ipynb"
     output:
         "logs/notebooks/Correlations_notebook.py.ipynb"
     notebook:
         'scripts/Correlations_notebook.py.ipynb'
+
+rule grl_resistance_metrics:
+    input:
+        expand('raw_value_matrices_nosyn/{conditions}.csv',
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl']),
+        expand('raw_value_matrices_std_nosyn/{conditions}.csv',
+            conditions = ['Glu_Gal', 'Glu_Gc', 'Glu_Grl', 'Gal_Gc', 'Gal_Grl'])
+    log:
+        notebook = "logs/notebooks/Grl_resistance_calling.py.ipynb"
+    output:
+        "logs/notebooks/Grl_resistance_calling.py.ipynb"
+    notebook:
+        "scripts/Grl_resistance_calling.py.ipynb"
 # rule make_figs:
 #     input:
 #         expand('wt_STOP_matrices/{conditions}.csv',
